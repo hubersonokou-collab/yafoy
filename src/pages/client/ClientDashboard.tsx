@@ -9,6 +9,28 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Package, Search, ShoppingCart, MapPin, Star } from 'lucide-react';
 
+// Import category images
+import decorationImg from '@/assets/categories/decoration.jpg';
+import mobilierImg from '@/assets/categories/mobilier.jpg';
+import sonorisationImg from '@/assets/categories/sonorisation.jpg';
+import eclairageImg from '@/assets/categories/eclairage.jpg';
+import vaisselleImg from '@/assets/categories/vaisselle.jpg';
+import transportImg from '@/assets/categories/transport.jpg';
+import photographieImg from '@/assets/categories/photographie.jpg';
+import traiteurImg from '@/assets/categories/traiteur.jpg';
+
+// Category image mapping
+const categoryImages: Record<string, string> = {
+  'Décoration': decorationImg,
+  'Mobilier': mobilierImg,
+  'Sonorisation': sonorisationImg,
+  'Éclairage': eclairageImg,
+  'Vaisselle': vaisselleImg,
+  'Transport': transportImg,
+  'Photographie': photographieImg,
+  'Traiteur': traiteurImg,
+};
+
 // Helper function to get full image URL
 const getImageUrl = (imagePath: string | null): string | null => {
   if (!imagePath) return null;
@@ -88,9 +110,8 @@ const ClientDashboard = () => {
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
-  const getCategoryIcon = (iconName: string) => {
-    // Simple icon mapping
-    return <Package className="h-6 w-6" />;
+  const getCategoryImage = (categoryName: string) => {
+    return categoryImages[categoryName] || null;
   };
 
   if (authLoading || loading) {
@@ -127,18 +148,31 @@ const ClientDashboard = () => {
         <div>
           <h2 className="mb-4 text-lg font-semibold text-secondary">Catégories</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-            {categories.map((category) => (
-              <Link
-                key={category.id}
-                to={`/client/catalog?category=${category.id}`}
-                className="flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors hover:border-primary hover:bg-primary/5"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  {getCategoryIcon(category.icon)}
-                </div>
-                <span className="text-sm font-medium">{category.name}</span>
-              </Link>
-            ))}
+            {categories.map((category) => {
+              const categoryImage = getCategoryImage(category.name);
+              return (
+                <Link
+                  key={category.id}
+                  to={`/client/catalog?category=${category.id}`}
+                  className="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all hover:border-primary hover:shadow-md overflow-hidden"
+                >
+                  <div className="h-16 w-16 rounded-full overflow-hidden bg-muted">
+                    {categoryImage ? (
+                      <img
+                        src={categoryImage}
+                        alt={category.name}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-primary/10 text-primary">
+                        <Package className="h-6 w-6" />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium">{category.name}</span>
+                </Link>
+              );
+            })}
           </div>
         </div>
 
