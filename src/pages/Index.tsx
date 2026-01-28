@@ -3,6 +3,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { LogIn, LogOut, User, Star, Loader2, Shield, Store, ShoppingBag } from 'lucide-react';
 
+import heroBackground from '@/assets/hero-background.png';
+
 const Index = () => {
   const { user, loading, signOut, userRole, isAdmin, isSuperAdmin, isProvider, isClient } = useAuth();
 
@@ -15,7 +17,16 @@ const Index = () => {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="relative flex min-h-screen flex-col bg-background">
+      {/* Background image with reduced opacity */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        style={{ 
+          backgroundImage: `url(${heroBackground})`,
+          opacity: 0.3
+        }}
+      />
+      <div className="relative z-10 flex min-h-screen flex-col">
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -170,6 +181,7 @@ const Index = () => {
           © 2024 YAFOY. Tous droits réservés.
         </div>
       </footer>
+      </div>
     </div>
   );
 };
