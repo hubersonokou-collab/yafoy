@@ -3,15 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { OrderCard, OrderTimeline } from '@/components/orders';
+import { ReviewForm } from '@/components/reviews';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ShoppingCart, Calendar, MapPin } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Loader2, ShoppingCart, Star } from 'lucide-react';
+
+type OrderStatus = 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
 
 const ClientOrders = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedOrderForReview, setSelectedOrderForReview] = useState<any>(null);
+  const [reviewedOrders, setReviewedOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -28,14 +41,25 @@ const ClientOrders = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      // Fetch orders
+      const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('*')
         .eq('client_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setOrders(data || []);
+      if (ordersError) throw ordersError;
+      setOrders(ordersData || []);
+
+      // Fetch already reviewed orders
+      const { data: reviewsData } = await supabase
+        .from('reviews')
+        .select('order_id')
+        .eq('client_id', user.id);
+
+      if (reviewsData) {
+        setReviewedOrders(new Set(reviewsData.map((r) => r.order_id)));
+      }
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -43,17 +67,11 @@ const ClientOrders = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { label: string; className: string }> = {
-      pending: { label: 'En attente', className: 'bg-yellow-100 text-yellow-800' },
-      confirmed: { label: 'Confirmée', className: 'bg-blue-100 text-blue-800' },
-      in_progress: { label: 'En cours', className: 'bg-purple-100 text-purple-800' },
-      completed: { label: 'Terminée', className: 'bg-green-100 text-green-800' },
-      cancelled: { label: 'Annulée', className: 'bg-red-100 text-red-800' },
-    };
-
-    const config = statusConfig[status] || { label: status, className: '' };
-    return <Badge className={config.className}>{config.label}</Badge>;
+  const handleReviewSuccess = () => {
+    if (selectedOrderForReview) {
+      setReviewedOrders((prev) => new Set([...prev, selectedOrderForReview.id]));
+    }
+    setSelectedOrderForReview(null);
   };
 
   if (authLoading || loading) {
@@ -79,61 +97,70 @@ const ClientOrders = () => {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <ShoppingCart className="mb-3 h-12 w-12 text-muted-foreground" />
               <p className="text-muted-foreground">Vous n'avez pas encore de commandes</p>
+              <Button
+                variant="link"
+                className="mt-2"
+                onClick={() => navigate('/client/catalog')}
+              >
+                Découvrir le catalogue
+              </Button>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-4">
-            {orders.map((order) => (
-              <Card key={order.id}>
-                <CardContent className="p-4">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold">Commande #{order.id.slice(0, 8)}</p>
-                        {getStatusBadge(order.status)}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Créée le {new Date(order.created_at).toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric',
-                        })}
-                      </p>
-                      {order.event_date && (
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          Événement: {new Date(order.event_date).toLocaleDateString('fr-FR')}
-                        </p>
-                      )}
-                      {order.event_location && (
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {order.event_location}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">
-                        {Number(order.total_amount).toLocaleString()} FCFA
-                      </p>
-                      {order.deposit_paid > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          Caution payée: {Number(order.deposit_paid).toLocaleString()} FCFA
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {order.notes && (
-                    <div className="mt-3 rounded bg-muted p-3">
-                      <p className="text-sm text-muted-foreground">{order.notes}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+            {orders.map((order) => {
+              const canReview =
+                order.status === 'completed' && !reviewedOrders.has(order.id);
+
+              return (
+                <OrderCard
+                  key={order.id}
+                  order={order as { id: string; status: OrderStatus; total_amount: number; deposit_paid?: number | null; event_date?: string | null; event_location?: string | null; notes?: string | null; created_at: string }}
+                  showTimeline
+                  actions={
+                    canReview ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedOrderForReview(order)}
+                        className="gap-2"
+                      >
+                        <Star className="h-4 w-4" />
+                        Laisser un avis
+                      </Button>
+                    ) : reviewedOrders.has(order.id) ? (
+                      <Badge variant="secondary" className="text-success">
+                        <Star className="mr-1 h-3 w-3" />
+                        Avis envoyé
+                      </Badge>
+                    ) : null
+                  }
+                />
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Review Dialog */}
+      <Dialog
+        open={!!selectedOrderForReview}
+        onOpenChange={() => setSelectedOrderForReview(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Laisser un avis</DialogTitle>
+          </DialogHeader>
+          {selectedOrderForReview && (
+            <ReviewForm
+              orderId={selectedOrderForReview.id}
+              providerId={selectedOrderForReview.provider_id}
+              onSuccess={handleReviewSuccess}
+              onCancel={() => setSelectedOrderForReview(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

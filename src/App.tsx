@@ -18,11 +18,17 @@ import AdminOrders from "./pages/admin/AdminOrders";
 // Provider pages
 import ProviderDashboard from "./pages/provider/ProviderDashboard";
 import ProviderProducts from "./pages/provider/ProviderProducts";
+import ProviderOrders from "./pages/provider/ProviderOrders";
+import ProviderSettings from "./pages/provider/ProviderSettings";
+import ProviderPublicProfile from "./pages/provider/ProviderPublicProfile";
 
 // Client pages
 import ClientDashboard from "./pages/client/ClientDashboard";
 import ClientCatalog from "./pages/client/ClientCatalog";
 import ClientOrders from "./pages/client/ClientOrders";
+import ProductDetail from "./pages/client/ProductDetail";
+import ClientFavorites from "./pages/client/ClientFavorites";
+import ClientSettings from "./pages/client/ClientSettings";
 
 const queryClient = new QueryClient();
 
@@ -47,12 +53,17 @@ const App = () => (
             {/* Provider Routes */}
             <Route path="/provider" element={<ProviderDashboard />} />
             <Route path="/provider/products" element={<ProviderProducts />} />
-            <Route path="/provider/orders" element={<AdminOrders />} />
+            <Route path="/provider/orders" element={<ProviderOrders />} />
+            <Route path="/provider/settings" element={<ProviderSettings />} />
+            <Route path="/provider/:id" element={<ProviderPublicProfile />} />
             
             {/* Client Routes */}
             <Route path="/client" element={<ClientDashboard />} />
             <Route path="/client/catalog" element={<ClientCatalog />} />
             <Route path="/client/orders" element={<ClientOrders />} />
+            <Route path="/client/product/:id" element={<ProductDetail />} />
+            <Route path="/client/favorites" element={<ClientFavorites />} />
+            <Route path="/client/settings" element={<ClientSettings />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
