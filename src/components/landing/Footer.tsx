@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import logoYafoy from '@/assets/logo-yafoy.png';
 
 const Footer = () => {
   return (
@@ -8,9 +9,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="inline-block mb-4">
-              <span className="text-2xl font-bold font-serif" style={{ color: '#e9560c' }}>
-                YAFOY
-              </span>
+              <img src={logoYafoy} alt="YAFOY" className="h-12 w-auto" />
             </Link>
             <p className="text-secondary-foreground/70 text-sm leading-relaxed">
               La marketplace qui centralise tous les équipements et services pour vos cérémonies.

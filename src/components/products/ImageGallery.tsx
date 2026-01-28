@@ -9,11 +9,25 @@ interface ImageGalleryProps {
   productName?: string;
 }
 
+// Helper function to get full image URL
+const getImageUrl = (imagePath: string | null): string | null => {
+  if (!imagePath) return null;
+  // If already a full URL, return as is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  // Otherwise construct Supabase storage URL
+  return `https://dvbgytmkysaztbdqosup.supabase.co/storage/v1/object/public/product-images/${imagePath}`;
+};
+
 export const ImageGallery = ({ images, productName }: ImageGalleryProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
 
-  const validImages = images.filter((img) => img && img.trim() !== '');
+  const validImages = images
+    .filter((img) => img && img.trim() !== '')
+    .map((img) => getImageUrl(img))
+    .filter((img): img is string => img !== null);
 
   if (validImages.length === 0) {
     return (
