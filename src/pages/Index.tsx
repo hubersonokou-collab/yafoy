@@ -57,7 +57,7 @@ const Index = () => {
         <div className="animate-fade-in space-y-6">
           <h1 className="text-5xl font-bold tracking-tight text-secondary md:text-6xl">
             Bienvenue sur{' '}
-            <span className="gradient-yafoy bg-clip-text text-transparent">YAFOY</span>
+            <span style={{ color: '#e9560c' }}>YAFOY</span>
           </h1>
           
           <p className="mx-auto max-w-2xl text-xl text-muted-foreground">
