@@ -8,6 +8,8 @@ import { VoiceAssistant } from "@/components/voice";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import HowItWorks from "./pages/HowItWorks";
+import BecomeProvider from "./pages/BecomeProvider";
 
 // Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -42,6 +44,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/comment-ca-marche" element={<HowItWorks />} />
+            <Route path="/devenir-prestataire" element={<BecomeProvider />} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminDashboard />} />

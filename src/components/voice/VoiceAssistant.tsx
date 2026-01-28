@@ -38,6 +38,9 @@ const VOICE_COMMANDS = [
   { pattern: /mon compte/i, action: 'account', extract: null },
   { pattern: /connexion/i, action: 'login', extract: null },
   { pattern: /déconnexion/i, action: 'logout', extract: null },
+  { pattern: /comment ça marche/i, action: 'how-it-works', extract: null },
+  { pattern: /devenir prestataire/i, action: 'become-provider', extract: null },
+  { pattern: /prestataire/i, action: 'become-provider', extract: null },
 ];
 
 const NAVIGATION_MAP: Record<string, string> = {
@@ -52,11 +55,16 @@ const NAVIGATION_MAP: Record<string, string> = {
   paramètres: '/client/settings',
   connexion: '/auth',
   login: '/auth',
+  'comment ça marche': '/comment-ca-marche',
+  'devenir prestataire': '/devenir-prestataire',
+  prestataire: '/devenir-prestataire',
 };
 
 const HELP_MESSAGES = [
   'Dites "Rechercher" suivi de ce que vous cherchez',
   'Dites "Catalogue" pour voir les produits',
+  'Dites "Comment ça marche" pour comprendre le fonctionnement',
+  'Dites "Devenir prestataire" pour en savoir plus',
   'Dites "Mes commandes" pour voir vos commandes',
   'Dites "Retour" pour revenir en arrière',
   'Dites "Aide" pour entendre ces instructions',
@@ -213,6 +221,22 @@ export const VoiceAssistant = ({ onSearch, className }: VoiceAssistantProps) => 
         navigate('/auth');
         if (isTTSSupported) {
           speak('Page de connexion');
+        }
+        break;
+
+      case 'how-it-works':
+        setFeedback('Comment ça marche');
+        navigate('/comment-ca-marche');
+        if (isTTSSupported) {
+          speak('Voici comment fonctionne YAFOY');
+        }
+        break;
+
+      case 'become-provider':
+        setFeedback('Devenir prestataire');
+        navigate('/devenir-prestataire');
+        if (isTTSSupported) {
+          speak('Page pour devenir prestataire');
         }
         break;
 

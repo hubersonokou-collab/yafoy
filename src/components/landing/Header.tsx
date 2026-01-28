@@ -23,10 +23,10 @@ const Header = () => {
           <Link to="/client/catalog" className="text-muted-foreground hover:text-primary transition-colors font-medium">
             Catalogue
           </Link>
-          <Link to="#" className="text-muted-foreground hover:text-primary transition-colors font-medium">
+          <Link to="/comment-ca-marche" className="text-muted-foreground hover:text-primary transition-colors font-medium">
             Comment ça marche
           </Link>
-          <Link to="#" className="text-muted-foreground hover:text-primary transition-colors font-medium">
+          <Link to="/devenir-prestataire" className="text-muted-foreground hover:text-primary transition-colors font-medium">
             Devenir prestataire
           </Link>
         </nav>
@@ -89,14 +89,14 @@ const Header = () => {
               Catalogue
             </Link>
             <Link 
-              to="#" 
+              to="/comment-ca-marche" 
               className="text-foreground hover:text-primary transition-colors font-medium py-2"
               onClick={() => setMobileMenuOpen(false)}
             >
               Comment ça marche
             </Link>
             <Link 
-              to="#" 
+              to="/devenir-prestataire" 
               className="text-foreground hover:text-primary transition-colors font-medium py-2"
               onClick={() => setMobileMenuOpen(false)}
             >
