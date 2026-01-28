@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { ImageUpload } from '@/components/products/ImageUpload';
 import {
   Table,
   TableBody,
@@ -44,6 +45,7 @@ interface ProductForm {
   category_id: string;
   location: string;
   is_active: boolean;
+  images: string[];
 }
 
 const initialFormState: ProductForm = {
@@ -55,6 +57,7 @@ const initialFormState: ProductForm = {
   category_id: '',
   location: '',
   is_active: true,
+  images: [],
 };
 
 const ProviderProducts = () => {
@@ -125,6 +128,7 @@ const ProviderProducts = () => {
         category_id: form.category_id || null,
         location: form.location || null,
         is_active: form.is_active,
+        images: form.images,
       };
 
       if (editingProduct) {
@@ -176,6 +180,7 @@ const ProviderProducts = () => {
       category_id: product.category_id || '',
       location: product.location || '',
       is_active: product.is_active,
+      images: product.images || [],
     });
     setIsDialogOpen(true);
   };
@@ -343,6 +348,18 @@ const ProviderProducts = () => {
                   />
                 </div>
 
+                {user && (
+                  <div className="space-y-2">
+                    <Label>Images du produit</Label>
+                    <ImageUpload
+                      userId={user.id}
+                      images={form.images}
+                      onImagesChange={(images) => setForm({ ...form, images })}
+                      maxImages={5}
+                    />
+                  </div>
+                )}
+
                 <Button type="submit" className="w-full" disabled={submitting}>
                   {submitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -402,8 +419,16 @@ const ProviderProducts = () => {
                     <TableRow key={product.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
-                            <Package className="h-5 w-5 text-muted-foreground" />
+                          <div className="h-10 w-10 rounded bg-muted flex items-center justify-center overflow-hidden">
+                            {product.images && product.images.length > 0 ? (
+                              <img
+                                src={product.images[0]}
+                                alt={product.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <Package className="h-5 w-5 text-muted-foreground" />
+                            )}
                           </div>
                           <div>
                             <p className="font-medium">{product.name}</p>
