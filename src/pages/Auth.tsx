@@ -20,7 +20,7 @@ type UserRoleType = 'client' | 'provider';
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { user, signUp, signIn, signInWithPhone, signUpWithPhone, signInAsGuest, loading } = useAuth();
+  const { user, signUp, signIn, signInWithPhone, signUpWithPhone, signInAsGuest, loading, userRole, isAdmin, isSuperAdmin, isProvider } = useAuth();
   const { toast } = useToast();
 
   const [mode, setMode] = useState<AuthMode>('login');
@@ -36,12 +36,30 @@ const Auth = () => {
   const [selectedRole, setSelectedRole] = useState<UserRoleType>('client');
   const [errors, setErrors] = useState<{ username?: string; email?: string; phone?: string; password?: string; confirmPassword?: string }>({});
 
-  // Redirect if already logged in
+  // Redirect if already logged in - with role-based routing
   useEffect(() => {
-    if (user && !loading) {
-      navigate('/');
+    if (!loading && user) {
+      // For anonymous users, redirect to client dashboard
+      if (user.is_anonymous) {
+        navigate('/client');
+        return;
+      }
+      
+      // Wait for role to be loaded for authenticated users
+      if (userRole === null) {
+        return;
+      }
+      
+      // Redirect based on role
+      if (userRole === 'super_admin' || userRole === 'admin') {
+        navigate('/admin');
+      } else if (userRole === 'provider') {
+        navigate('/provider');
+      } else {
+        navigate('/client');
+      }
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, userRole, navigate]);
 
   // Check if username looks like an email or phone
   const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -161,7 +179,7 @@ const Auth = () => {
           title: "Bienvenue !",
           description: "Vous êtes connecté en tant qu'invité",
         });
-        navigate('/');
+        navigate('/client');
       }
     } catch (error) {
       toast({

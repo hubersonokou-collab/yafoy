@@ -179,7 +179,12 @@ const ClientDashboard = () => {
                         {Number(product.price_per_day).toLocaleString()} FCFA
                         <span className="text-xs font-normal text-muted-foreground">/jour</span>
                       </p>
-                      <Button size="sm">Réserver</Button>
+                      <Button 
+                        size="sm"
+                        onClick={() => navigate(`/client/product/${product.id}`)}
+                      >
+                        Réserver
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

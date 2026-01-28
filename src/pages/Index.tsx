@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogIn, LogOut, User, Star, Loader2 } from 'lucide-react';
+import { LogIn, LogOut, User, Star, Loader2, Shield, Store, ShoppingBag } from 'lucide-react';
 
 const Index = () => {
-  const { user, loading, signOut, userRole } = useAuth();
+  const { user, loading, signOut, userRole, isAdmin, isSuperAdmin, isProvider, isClient } = useAuth();
 
   if (loading) {
     return (
@@ -73,14 +73,55 @@ const Index = () => {
                     Commencer maintenant
                   </Button>
                 </Link>
-                <Button variant="outline" size="lg" className="text-lg">
-                  Découvrir les offres
-                </Button>
+                <Link to="/client/catalog">
+                  <Button variant="outline" size="lg" className="text-lg">
+                    Découvrir les offres
+                  </Button>
+                </Link>
               </>
             ) : (
-              <Button size="lg" className="text-lg">
-                Explorer le catalogue
-              </Button>
+              <>
+                {/* Dashboard button based on role */}
+                {(isSuperAdmin() || isAdmin()) && (
+                  <Link to="/admin">
+                    <Button size="lg" className="text-lg gap-2">
+                      <Shield className="h-5 w-5" />
+                      Administration
+                    </Button>
+                  </Link>
+                )}
+                {isProvider() && (
+                  <Link to="/provider">
+                    <Button size="lg" className="text-lg gap-2">
+                      <Store className="h-5 w-5" />
+                      Mon espace prestataire
+                    </Button>
+                  </Link>
+                )}
+                {isClient() && (
+                  <Link to="/client">
+                    <Button size="lg" className="text-lg gap-2">
+                      <User className="h-5 w-5" />
+                      Mon espace
+                    </Button>
+                  </Link>
+                )}
+                {/* Anonymous user */}
+                {user.is_anonymous && (
+                  <Link to="/client">
+                    <Button size="lg" className="text-lg gap-2">
+                      <ShoppingBag className="h-5 w-5" />
+                      Explorer
+                    </Button>
+                  </Link>
+                )}
+                {/* Catalog button always visible */}
+                <Link to="/client/catalog">
+                  <Button variant="outline" size="lg" className="text-lg">
+                    Voir le catalogue
+                  </Button>
+                </Link>
+              </>
             )}
           </div>
 
