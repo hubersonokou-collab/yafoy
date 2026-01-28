@@ -20,6 +20,7 @@ import AdminOrders from "./pages/admin/AdminOrders";
 // Provider pages
 import ProviderDashboard from "./pages/provider/ProviderDashboard";
 import ProviderProducts from "./pages/provider/ProviderProducts";
+import ProviderProductNew from "./pages/provider/ProviderProductNew";
 import ProviderOrders from "./pages/provider/ProviderOrders";
 import ProviderSettings from "./pages/provider/ProviderSettings";
 import ProviderPublicProfile from "./pages/provider/ProviderPublicProfile";
@@ -57,6 +58,7 @@ const App = () => (
             {/* Provider Routes */}
             <Route path="/provider" element={<ProviderDashboard />} />
             <Route path="/provider/products" element={<ProviderProducts />} />
+            <Route path="/provider/products/new" element={<ProviderProductNew />} />
             <Route path="/provider/orders" element={<ProviderOrders />} />
             <Route path="/provider/settings" element={<ProviderSettings />} />
             <Route path="/provider/:id" element={<ProviderPublicProfile />} />
