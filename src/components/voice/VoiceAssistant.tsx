@@ -41,6 +41,18 @@ const VOICE_COMMANDS = [
   { pattern: /comment ça marche/i, action: 'how-it-works', extract: null },
   { pattern: /devenir prestataire/i, action: 'become-provider', extract: null },
   { pattern: /prestataire/i, action: 'become-provider', extract: null },
+  // Provider-specific commands
+  { pattern: /ajouter\s+(?:un\s+)?produit/i, action: 'add-product', extract: null },
+  { pattern: /nouveau\s+produit/i, action: 'add-product', extract: null },
+  { pattern: /mes\s+produits/i, action: 'my-products', extract: null },
+  { pattern: /gérer\s+(?:mes\s+)?produits/i, action: 'my-products', extract: null },
+  { pattern: /commandes\s+(?:en\s+)?attente/i, action: 'provider-orders', extract: null },
+  { pattern: /paramètres/i, action: 'settings', extract: null },
+  { pattern: /tableau\s+de\s+bord/i, action: 'dashboard', extract: null },
+  // Auth commands
+  { pattern: /(?:je\s+veux\s+)?(?:m[''])?inscrire/i, action: 'signup', extract: null },
+  { pattern: /créer\s+(?:un\s+)?compte/i, action: 'signup', extract: null },
+  { pattern: /(?:me\s+)?connecter/i, action: 'login', extract: null },
 ];
 
 const NAVIGATION_MAP: Record<string, string> = {
@@ -58,6 +70,11 @@ const NAVIGATION_MAP: Record<string, string> = {
   'comment ça marche': '/comment-ca-marche',
   'devenir prestataire': '/devenir-prestataire',
   prestataire: '/devenir-prestataire',
+  // Provider navigation
+  'mes produits': '/provider/products',
+  'ajouter produit': '/provider/products',
+  'tableau de bord': '/provider',
+  dashboard: '/provider',
 };
 
 const HELP_MESSAGES = [
@@ -66,6 +83,7 @@ const HELP_MESSAGES = [
   'Dites "Comment ça marche" pour comprendre le fonctionnement',
   'Dites "Devenir prestataire" pour en savoir plus',
   'Dites "Mes commandes" pour voir vos commandes',
+  'Dites "Ajouter produit" pour créer un nouveau produit',
   'Dites "Retour" pour revenir en arrière',
   'Dites "Aide" pour entendre ces instructions',
 ];
@@ -237,6 +255,54 @@ export const VoiceAssistant = ({ onSearch, className }: VoiceAssistantProps) => 
         navigate('/devenir-prestataire');
         if (isTTSSupported) {
           speak('Page pour devenir prestataire');
+        }
+        break;
+
+      case 'add-product':
+        setFeedback('Ajouter un produit');
+        navigate('/provider/products');
+        if (isTTSSupported) {
+          speak('Ouverture de la gestion des produits. Cliquez sur Ajouter un produit.');
+        }
+        break;
+
+      case 'my-products':
+        setFeedback('Mes produits');
+        navigate('/provider/products');
+        if (isTTSSupported) {
+          speak('Voici vos produits');
+        }
+        break;
+
+      case 'provider-orders':
+        setFeedback('Commandes prestataire');
+        navigate('/provider/orders');
+        if (isTTSSupported) {
+          speak('Voici vos commandes en attente');
+        }
+        break;
+
+      case 'settings':
+        setFeedback('Paramètres');
+        navigate('/provider/settings');
+        if (isTTSSupported) {
+          speak('Ouverture des paramètres');
+        }
+        break;
+
+      case 'dashboard':
+        setFeedback('Tableau de bord');
+        navigate('/provider');
+        if (isTTSSupported) {
+          speak('Voici votre tableau de bord');
+        }
+        break;
+
+      case 'signup':
+        setFeedback('Inscription');
+        navigate('/auth');
+        if (isTTSSupported) {
+          speak('Page d\'inscription. Choisissez votre méthode d\'inscription.');
         }
         break;
 
