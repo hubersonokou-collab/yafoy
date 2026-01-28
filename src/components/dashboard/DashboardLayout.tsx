@@ -19,6 +19,7 @@ import {
   Heart,
   Bell,
 } from 'lucide-react';
+import logoYafoy from '@/assets/logo-yafoy.png';
 
 interface NavItem {
   title: string;
@@ -87,10 +88,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Header */}
       <div className="flex h-16 items-center border-b border-border px-4">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary">
-            <span className="text-sm font-bold text-primary-foreground">Y</span>
-          </div>
-          <span className="font-bold text-secondary">YAFOY</span>
+          <img src={logoYafoy} alt="YAFOY" className="h-10 w-auto" />
         </Link>
       </div>
 

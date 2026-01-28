@@ -26,8 +26,19 @@ interface ProductCardProps {
   onReserve?: () => void;
 }
 
+// Helper function to get full image URL
+const getImageUrl = (imagePath: string | null): string | null => {
+  if (!imagePath) return null;
+  // If already a full URL, return as is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  // Otherwise construct Supabase storage URL
+  return `https://dvbgytmkysaztbdqosup.supabase.co/storage/v1/object/public/product-images/${imagePath}`;
+};
+
 export const ProductCard = ({ product, showFavoriteButton = true, onReserve }: ProductCardProps) => {
-  const mainImage = product.images && product.images.length > 0 ? product.images[0] : null;
+  const mainImage = product.images && product.images.length > 0 ? getImageUrl(product.images[0]) : null;
 
   return (
     <Card className="overflow-hidden group hover:shadow-md transition-shadow">

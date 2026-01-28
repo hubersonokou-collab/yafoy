@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { LogIn, LogOut, User, Menu, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
+import logoYafoy from '@/assets/logo-yafoy.png';
 
 const Header = () => {
   const { user, signOut, userRole } = useAuth();
@@ -13,9 +14,7 @@ const Header = () => {
       <div className="container mx-auto flex h-16 md:h-20 items-center justify-between px-4">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <span className="text-2xl md:text-3xl font-bold font-serif" style={{ color: '#e9560c' }}>
-            YAFOY
-          </span>
+          <img src={logoYafoy} alt="YAFOY" className="h-12 md:h-14 w-auto" />
         </Link>
 
         {/* Desktop Navigation */}
