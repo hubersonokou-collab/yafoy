@@ -186,7 +186,3 @@
     border-color: hsl(var(--gold));
   }
 
-  .gradient-yafoy {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--gold)) 100%);
-  }
-}
