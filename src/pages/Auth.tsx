@@ -1,13 +1,28 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Phone, Eye, EyeOff, Loader2, LogIn, UserPlus, Lock, User } from 'lucide-react';
+import { 
+  Mail, 
+  Phone, 
+  Eye, 
+  EyeOff, 
+  Loader2, 
+  LogIn, 
+  UserPlus, 
+  Lock, 
+  User,
+  Sparkles,
+  Shield,
+  Mic,
+  ArrowRight,
+  CheckCircle2
+} from 'lucide-react';
 import { z } from 'zod';
 import { VoiceAssistant } from '@/components/voice';
 
@@ -27,7 +42,7 @@ const Auth = () => {
 
   const [mode, setMode] = useState<AuthMode>('login');
   const [signupMethod, setSignupMethod] = useState<SignupMethod>('phone');
-  const [username, setUsername] = useState(''); // For login: email or phone
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [fullName, setFullName] = useState('');
@@ -39,21 +54,18 @@ const Auth = () => {
   const [selectedRole, setSelectedRole] = useState<UserRoleType>('client');
   const [errors, setErrors] = useState<{ username?: string; email?: string; phone?: string; password?: string; confirmPassword?: string }>({});
 
-  // Redirect if already logged in - with role-based routing
+  // Redirect if already logged in
   useEffect(() => {
     if (!loading && user) {
-      // For anonymous users, redirect to client dashboard
       if (user.is_anonymous) {
         navigate('/client');
         return;
       }
       
-      // Wait for role to be loaded for authenticated users
       if (userRole === null) {
         return;
       }
       
-      // Redirect based on role
       if (userRole === 'super_admin' || userRole === 'admin') {
         navigate('/admin');
       } else if (userRole === 'provider') {
@@ -64,7 +76,6 @@ const Auth = () => {
     }
   }, [user, loading, userRole, navigate]);
 
-  // Check if username looks like an email or phone
   const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   const isPhone = (value: string) => /^\+?[1-9]\d{7,14}$/.test(value);
 
@@ -72,14 +83,12 @@ const Auth = () => {
     const newErrors: typeof errors = {};
 
     if (mode === 'login') {
-      // For login: username (email or phone) is required
       if (!username.trim()) {
         newErrors.username = "Email ou numéro de téléphone requis";
       } else if (!isEmail(username) && !isPhone(username)) {
         newErrors.username = "Format invalide (email ou numéro de téléphone)";
       }
     } else {
-      // For signup: validate based on chosen method
       if (signupMethod === 'phone') {
         const phoneResult = phoneSchema.safeParse(phone);
         if (!phoneResult.success) {
@@ -117,7 +126,6 @@ const Auth = () => {
       let result;
 
       if (mode === 'signup') {
-        // For signup, use the chosen method (phone or email)
         if (signupMethod === 'phone') {
           result = await signUpWithPhone(phone, password, selectedRole);
         } else {
@@ -126,15 +134,14 @@ const Auth = () => {
 
         if (!result.error) {
           toast({
-            title: "Compte créé !",
+            title: "🎉 Bienvenue dans la famille YAFOY !",
             description: signupMethod === 'email' 
               ? "Vérifiez votre email pour confirmer votre compte."
-              : "Votre compte a été créé avec succès.",
+              : "Votre compte a été créé avec succès. Explorez notre catalogue !",
             className: "bg-success text-success-foreground",
           });
         }
       } else {
-        // For login, determine if username is email or phone
         if (isEmail(username)) {
           result = await signIn(username, password);
         } else {
@@ -202,296 +209,446 @@ const Auth = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
+          <p className="mt-4 text-muted-foreground animate-pulse">Chargement...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <div className="w-full max-w-md animate-fade-in">
-        {/* Logo et titre */}
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <span className="text-3xl font-bold text-primary">Y</span>
-          </div>
-          <h1 className="text-2xl font-bold text-secondary">
-            YAFOY
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            La marketplace de location pour vos cérémonies
-          </p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      {/* Decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-secondary/10 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-accent/5 blur-3xl" />
+      </div>
 
-        <Card className="border-border shadow-lg">
-          <CardContent className="pt-6">
-            {/* Tabs pour mode connexion/inscription */}
-            <Tabs value={mode} onValueChange={(v) => setMode(v as AuthMode)} className="mb-6">
-              <TabsList className="grid w-full grid-cols-2 h-12">
-                <TabsTrigger value="login" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <LogIn className="h-4 w-4" />
-                  Connexion
-                </TabsTrigger>
-                <TabsTrigger value="signup" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <UserPlus className="h-4 w-4" />
-                  Inscription
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+      <div className="relative flex min-h-screen">
+        {/* Left side - Branding & Features (hidden on mobile) */}
+        <div className="hidden lg:flex lg:w-1/2 flex-col justify-center p-12 xl:p-20">
+          <div className="max-w-lg">
+            {/* Logo */}
+            <Link to="/" className="inline-flex items-center gap-3 group mb-12">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-shadow">
+                <span className="text-3xl font-bold text-primary-foreground">Y</span>
+              </div>
+              <span className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                YAFOY
+              </span>
+            </Link>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Login mode: single username field */}
-              {mode === 'login' && (
-                <div className="space-y-2">
-                  <Label htmlFor="username" className="flex items-center gap-2 text-muted-foreground">
-                    <User className="h-4 w-4" />
-                    Email ou numéro de téléphone
-                  </Label>
-                  <Input
-                    id="username"
-                    type="text"
-                    placeholder="email@exemple.com ou +225 XX XX XX XX"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className={`h-12 ${errors.username ? "border-destructive" : ""}`}
-                    disabled={isSubmitting}
-                  />
-                  {errors.username && (
-                    <p className="text-sm text-destructive">{errors.username}</p>
-                  )}
+            {/* Headline */}
+            <h1 className="text-4xl xl:text-5xl font-bold text-secondary leading-tight mb-6">
+              Organisez vos <span className="text-primary">cérémonies</span> en toute simplicité
+            </h1>
+            
+            <p className="text-lg text-muted-foreground mb-10 leading-relaxed">
+              Découvrez la première plateforme de location d'équipements pour événements en Côte d'Ivoire. 
+              Mariages, baptêmes, anniversaires — tout ce dont vous avez besoin, à portée de main.
+            </p>
+
+            {/* Features */}
+            <div className="space-y-5">
+              <div className="flex items-start gap-4 p-4 rounded-xl bg-card/50 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-colors">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                  <Mic className="h-6 w-6" />
                 </div>
-              )}
-
-              {/* Signup mode: Nom complet */}
-              {mode === 'signup' && (
-                <div className="space-y-2">
-                  <Label htmlFor="fullName" className="flex items-center gap-2 text-muted-foreground">
-                    <User className="h-4 w-4" />
-                    Nom complet (optionnel)
-                  </Label>
-                  <Input
-                    id="fullName"
-                    type="text"
-                    placeholder="Jean Dupont"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    disabled={isSubmitting}
-                    className="h-12"
-                  />
+                <div>
+                  <h3 className="font-semibold text-secondary mb-1">Commande vocale</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Naviguez et réservez avec votre voix. "Chercher des tentes pour un mariage"
+                  </p>
                 </div>
-              )}
-
-              {/* Signup mode: Method selection (phone or email) */}
-              {mode === 'signup' && (
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">S'inscrire avec</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant={signupMethod === 'phone' ? 'default' : 'outline'}
-                      onClick={() => setSignupMethod('phone')}
-                      className="h-10"
-                      disabled={isSubmitting}
-                    >
-                      <Phone className="mr-2 h-4 w-4" />
-                      Téléphone
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={signupMethod === 'email' ? 'default' : 'outline'}
-                      onClick={() => setSignupMethod('email')}
-                      className="h-10"
-                      disabled={isSubmitting}
-                    >
-                      <Mail className="mr-2 h-4 w-4" />
-                      Email
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Signup mode: Phone input (when phone method selected) */}
-              {mode === 'signup' && signupMethod === 'phone' && (
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="h-4 w-4" />
-                    Numéro de téléphone
-                  </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+225 XX XX XX XX XX"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className={`h-12 ${errors.phone ? "border-destructive" : ""}`}
-                    disabled={isSubmitting}
-                  />
-                  {errors.phone && (
-                    <p className="text-sm text-destructive">{errors.phone}</p>
-                  )}
-                </div>
-              )}
-
-              {/* Signup mode: Email input (when email method selected) */}
-              {mode === 'signup' && signupMethod === 'email' && (
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="flex items-center gap-2 text-muted-foreground">
-                    <Mail className="h-4 w-4" />
-                    Adresse email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="email@exemple.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={`h-12 ${errors.email ? "border-destructive" : ""}`}
-                    disabled={isSubmitting}
-                  />
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email}</p>
-                  )}
-                </div>
-              )}
-
-              {/* Mot de passe */}
-              <div className="space-y-2">
-                <Label htmlFor="password" className="flex items-center gap-2 text-muted-foreground">
-                  <Lock className="h-4 w-4" />
-                  Mot de passe
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={`h-12 pr-10 ${errors.password ? "border-destructive" : ""}`}
-                    disabled={isSubmitting}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-                {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password}</p>
-                )}
               </div>
 
-              {/* Confirmer mot de passe - only for signup */}
-              {mode === 'signup' && (
-                <>
+              <div className="flex items-start gap-4 p-4 rounded-xl bg-card/50 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-colors">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 shrink-0">
+                  <Shield className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-secondary mb-1">Prestataires vérifiés</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Tous nos prestataires sont évalués et certifiés pour votre tranquillité
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 p-4 rounded-xl bg-card/50 backdrop-blur-sm border border-border/50 hover:border-primary/30 transition-colors">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 shrink-0">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-secondary mb-1">+500 équipements</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Mobilier, sono, décoration, traiteur — tout pour réussir votre événement
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right side - Auth Form */}
+        <div className="flex w-full lg:w-1/2 items-center justify-center p-6 lg:p-12">
+          <div className="w-full max-w-md animate-fade-in">
+            {/* Mobile Logo */}
+            <div className="lg:hidden text-center mb-8">
+              <Link to="/" className="inline-flex items-center gap-3 group">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/25">
+                  <span className="text-2xl font-bold text-primary-foreground">Y</span>
+                </div>
+                <span className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                  YAFOY
+                </span>
+              </Link>
+              <p className="mt-3 text-sm text-muted-foreground">
+                La marketplace de location pour vos cérémonies
+              </p>
+            </div>
+
+            <Card className="border-border/50 shadow-2xl shadow-black/5 backdrop-blur-sm bg-card/95">
+              <CardContent className="p-8">
+                {/* Welcome Text */}
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-secondary mb-2">
+                    {mode === 'login' ? 'Bon retour !' : 'Créer un compte'}
+                  </h2>
+                  <p className="text-muted-foreground">
+                    {mode === 'login' 
+                      ? 'Connectez-vous pour accéder à votre espace' 
+                      : 'Rejoignez des milliers d\'utilisateurs satisfaits'}
+                  </p>
+                </div>
+
+                {/* Tabs */}
+                <Tabs value={mode} onValueChange={(v) => setMode(v as AuthMode)} className="mb-6">
+                  <TabsList className="grid w-full grid-cols-2 h-14 p-1 bg-muted/50">
+                    <TabsTrigger 
+                      value="login" 
+                      className="flex items-center gap-2 h-12 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium"
+                    >
+                      <LogIn className="h-4 w-4" />
+                      Connexion
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="signup" 
+                      className="flex items-center gap-2 h-12 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-primary font-medium"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      Inscription
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {/* Login: Username field */}
+                  {mode === 'login' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="username" className="text-sm font-medium text-secondary">
+                        Email ou téléphone
+                      </Label>
+                      <div className="relative">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          id="username"
+                          type="text"
+                          placeholder="email@exemple.com ou +225..."
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          className={`h-14 pl-12 text-base bg-muted/30 border-border/50 focus:border-primary focus:ring-primary/20 ${errors.username ? "border-destructive" : ""}`}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                      {errors.username && (
+                        <p className="text-sm text-destructive flex items-center gap-1">
+                          <span className="h-1 w-1 rounded-full bg-destructive" />
+                          {errors.username}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Signup: Full name */}
+                  {mode === 'signup' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName" className="text-sm font-medium text-secondary">
+                        Nom complet <span className="text-muted-foreground">(optionnel)</span>
+                      </Label>
+                      <div className="relative">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          id="fullName"
+                          type="text"
+                          placeholder="Jean Kouamé"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          disabled={isSubmitting}
+                          className="h-14 pl-12 text-base bg-muted/30 border-border/50 focus:border-primary"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Signup: Method selection */}
+                  {mode === 'signup' && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-secondary">S'inscrire avec</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button
+                          type="button"
+                          variant={signupMethod === 'phone' ? 'default' : 'outline'}
+                          onClick={() => setSignupMethod('phone')}
+                          className={`h-14 text-base gap-2 ${signupMethod === 'phone' ? 'shadow-lg shadow-primary/25' : 'hover:border-primary/50'}`}
+                          disabled={isSubmitting}
+                        >
+                          <Phone className="h-5 w-5" />
+                          Téléphone
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={signupMethod === 'email' ? 'default' : 'outline'}
+                          onClick={() => setSignupMethod('email')}
+                          className={`h-14 text-base gap-2 ${signupMethod === 'email' ? 'shadow-lg shadow-primary/25' : 'hover:border-primary/50'}`}
+                          disabled={isSubmitting}
+                        >
+                          <Mail className="h-5 w-5" />
+                          Email
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Signup: Phone input */}
+                  {mode === 'signup' && signupMethod === 'phone' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="phone" className="text-sm font-medium text-secondary">
+                        Numéro de téléphone
+                      </Label>
+                      <div className="relative">
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          id="phone"
+                          type="tel"
+                          placeholder="+225 07 XX XX XX XX"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className={`h-14 pl-12 text-base bg-muted/30 border-border/50 focus:border-primary ${errors.phone ? "border-destructive" : ""}`}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                      {errors.phone && (
+                        <p className="text-sm text-destructive flex items-center gap-1">
+                          <span className="h-1 w-1 rounded-full bg-destructive" />
+                          {errors.phone}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Signup: Email input */}
+                  {mode === 'signup' && signupMethod === 'email' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="text-sm font-medium text-secondary">
+                        Adresse email
+                      </Label>
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="email@exemple.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className={`h-14 pl-12 text-base bg-muted/30 border-border/50 focus:border-primary ${errors.email ? "border-destructive" : ""}`}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                      {errors.email && (
+                        <p className="text-sm text-destructive flex items-center gap-1">
+                          <span className="h-1 w-1 rounded-full bg-destructive" />
+                          {errors.email}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Password */}
                   <div className="space-y-2">
-                    <Label htmlFor="confirmPassword" className="flex items-center gap-2 text-muted-foreground">
-                      <Lock className="h-4 w-4" />
-                      Confirmer le mot de passe
+                    <Label htmlFor="password" className="text-sm font-medium text-secondary">
+                      Mot de passe
                     </Label>
                     <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <Input
-                        id="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
+                        id="password"
+                        type={showPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className={`h-12 pr-10 ${errors.confirmPassword ? "border-destructive" : ""}`}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className={`h-14 pl-12 pr-12 text-base bg-muted/30 border-border/50 focus:border-primary ${errors.password ? "border-destructive" : ""}`}
                         disabled={isSubmitting}
                       />
                       <button
                         type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                       </button>
                     </div>
-                    {errors.confirmPassword && (
-                      <p className="text-sm text-destructive">{errors.confirmPassword}</p>
+                    {errors.password && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <span className="h-1 w-1 rounded-full bg-destructive" />
+                        {errors.password}
+                      </p>
                     )}
                   </div>
 
-                  {/* Role selection */}
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground">Je suis...</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <Button
-                        type="button"
-                        variant={selectedRole === 'client' ? 'default' : 'outline'}
-                        onClick={() => setSelectedRole('client')}
-                        className="w-full h-12"
-                        disabled={isSubmitting}
-                      >
-                        Client
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={selectedRole === 'provider' ? 'default' : 'outline'}
-                        onClick={() => setSelectedRole('provider')}
-                        className="w-full h-12"
-                        disabled={isSubmitting}
-                      >
-                        Prestataire
-                      </Button>
-                    </div>
+                  {/* Confirm Password - signup only */}
+                  {mode === 'signup' && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="confirmPassword" className="text-sm font-medium text-secondary">
+                          Confirmer le mot de passe
+                        </Label>
+                        <div className="relative">
+                          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                          <Input
+                            id="confirmPassword"
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className={`h-14 pl-12 pr-12 text-base bg-muted/30 border-border/50 focus:border-primary ${errors.confirmPassword ? "border-destructive" : ""}`}
+                            disabled={isSubmitting}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                        </div>
+                        {errors.confirmPassword && (
+                          <p className="text-sm text-destructive flex items-center gap-1">
+                            <span className="h-1 w-1 rounded-full bg-destructive" />
+                            {errors.confirmPassword}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Role selection */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-secondary">Je suis...</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRole('client')}
+                            disabled={isSubmitting}
+                            className={`relative p-4 rounded-xl border-2 text-left transition-all ${
+                              selectedRole === 'client'
+                                ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                                : 'border-border/50 hover:border-primary/30'
+                            }`}
+                          >
+                            {selectedRole === 'client' && (
+                              <CheckCircle2 className="absolute top-2 right-2 h-5 w-5 text-primary" />
+                            )}
+                            <span className="text-2xl mb-2 block">🎉</span>
+                            <span className="font-semibold text-secondary">Client</span>
+                            <p className="text-xs text-muted-foreground mt-1">Je recherche des équipements</p>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRole('provider')}
+                            disabled={isSubmitting}
+                            className={`relative p-4 rounded-xl border-2 text-left transition-all ${
+                              selectedRole === 'provider'
+                                ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10'
+                                : 'border-border/50 hover:border-primary/30'
+                            }`}
+                          >
+                            {selectedRole === 'provider' && (
+                              <CheckCircle2 className="absolute top-2 right-2 h-5 w-5 text-primary" />
+                            )}
+                            <span className="text-2xl mb-2 block">🏪</span>
+                            <span className="font-semibold text-secondary">Prestataire</span>
+                            <p className="text-xs text-muted-foreground mt-1">Je propose mes services</p>
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Submit Button */}
+                  <Button
+                    type="submit"
+                    className="w-full h-14 text-lg font-semibold gap-2 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Chargement...
+                      </>
+                    ) : mode === 'login' ? (
+                      <>
+                        Se connecter
+                        <ArrowRight className="h-5 w-5" />
+                      </>
+                    ) : (
+                      <>
+                        Créer mon compte
+                        <ArrowRight className="h-5 w-5" />
+                      </>
+                    )}
+                  </Button>
+                </form>
+
+                {/* Divider */}
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border/50"></div>
                   </div>
-                </>
-              )}
+                  <div className="relative flex justify-center text-sm">
+                    <span className="bg-card px-4 text-muted-foreground">ou</span>
+                  </div>
+                </div>
 
-              <Button 
-                type="submit" 
-                className="w-full h-12 text-base font-medium" 
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {mode === 'login' ? 'Connexion...' : 'Inscription...'}
-                  </>
-                ) : (
-                  mode === 'login' ? 'Se connecter' : "S'inscrire"
-                )}
-              </Button>
-            </form>
-          </CardContent>
+                {/* Guest Login */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleGuestLogin}
+                  disabled={isSubmitting}
+                  className="w-full h-12 gap-2 border-border/50 hover:border-primary/30 hover:bg-primary/5"
+                >
+                  <User className="h-5 w-5" />
+                  Continuer en tant qu'invité
+                </Button>
 
-          <CardFooter className="flex flex-col gap-4 pb-6">
-            <div className="relative w-full">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-primary">OU</span>
-              </div>
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full h-12"
-              onClick={handleGuestLogin}
-              disabled={isSubmitting}
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              Continuer en tant qu'invité
-            </Button>
-          </CardFooter>
-        </Card>
-
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          En continuant, vous acceptez nos{' '}
-          <a href="#" className="text-primary hover:underline">
-            conditions d'utilisation
-          </a>{' '}
-          et notre{' '}
-          <a href="#" className="text-primary hover:underline">
-            politique de confidentialité
-          </a>
-          .
-        </p>
+                {/* Footer links */}
+                <div className="mt-6 text-center space-y-2">
+                  <Link 
+                    to="/comment-ca-marche" 
+                    className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    Comment ça marche ?
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                  <p className="text-xs text-muted-foreground">
+                    En continuant, vous acceptez nos conditions d'utilisation
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
 
       {/* Voice Assistant */}
