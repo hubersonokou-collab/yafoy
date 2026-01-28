@@ -14,6 +14,182 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          price_per_day: number
+          product_id: string
+          quantity: number
+          rental_days: number
+          subtotal: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          price_per_day: number
+          product_id: string
+          quantity?: number
+          rental_days?: number
+          subtotal: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          price_per_day?: number
+          product_id?: string
+          quantity?: number
+          rental_days?: number
+          subtotal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          client_id: string
+          created_at: string
+          deposit_paid: number | null
+          event_date: string | null
+          event_location: string | null
+          id: string
+          notes: string | null
+          provider_id: string
+          status: Database["public"]["Enums"]["order_status"]
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          deposit_paid?: number | null
+          event_date?: string | null
+          event_location?: string | null
+          id?: string
+          notes?: string | null
+          provider_id: string
+          status?: Database["public"]["Enums"]["order_status"]
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          deposit_paid?: number | null
+          event_date?: string | null
+          event_location?: string | null
+          id?: string
+          notes?: string | null
+          provider_id?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          deposit_amount: number | null
+          description: string | null
+          id: string
+          images: string[] | null
+          is_active: boolean
+          is_verified: boolean
+          location: string | null
+          name: string
+          price_per_day: number
+          provider_id: string
+          quantity_available: number
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          deposit_amount?: number | null
+          description?: string | null
+          id?: string
+          images?: string[] | null
+          is_active?: boolean
+          is_verified?: boolean
+          location?: string | null
+          name: string
+          price_per_day: number
+          provider_id: string
+          quantity_available?: number
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          deposit_amount?: number | null
+          description?: string | null
+          id?: string
+          images?: string[] | null
+          is_active?: boolean
+          is_verified?: boolean
+          location?: string | null
+          name?: string
+          price_per_day?: number
+          provider_id?: string
+          quantity_available?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -86,6 +262,12 @@ export type Database = {
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
+      order_status:
+        | "pending"
+        | "confirmed"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
       user_role: "client" | "provider" | "super_admin" | "admin"
     }
     CompositeTypes: {
@@ -214,6 +396,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      order_status: [
+        "pending",
+        "confirmed",
+        "in_progress",
+        "completed",
+        "cancelled",
+      ],
       user_role: ["client", "provider", "super_admin", "admin"],
     },
   },
