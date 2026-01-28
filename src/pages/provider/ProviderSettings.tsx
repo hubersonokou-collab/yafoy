@@ -7,9 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, User, Save, LogOut, Camera, Store } from 'lucide-react';
+import { ProfileImageUpload } from '@/components/profile/ProfileImageUpload';
+import { Loader2, Save, LogOut, Store } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const ProviderSettings = () => {
@@ -137,24 +136,17 @@ const ProviderSettings = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSave} className="space-y-6">
-              {/* Avatar */}
-              <div className="flex items-center gap-4">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src={profile?.avatar_url || ''} />
-                  <AvatarFallback>
-                    <User className="h-10 w-10" />
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <Button type="button" variant="outline" size="sm" disabled>
-                    <Camera className="mr-2 h-4 w-4" />
-                    Changer le logo
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Bientôt disponible
-                  </p>
-                </div>
-              </div>
+              {/* Avatar / Logo */}
+              {user && (
+                <ProfileImageUpload
+                  userId={user.id}
+                  currentAvatarUrl={profile?.avatar_url || null}
+                  onUploadComplete={(url) => {
+                    setProfile((prev: any) => ({ ...prev, avatar_url: url }));
+                  }}
+                  size="lg"
+                />
+              )}
 
               {/* Form fields */}
               <div className="grid gap-4 sm:grid-cols-2">
