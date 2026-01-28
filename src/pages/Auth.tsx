@@ -24,6 +24,7 @@ const Auth = () => {
   const { toast } = useToast();
 
   const [mode, setMode] = useState<AuthMode>('login');
+  const [username, setUsername] = useState(''); // For login: email or phone
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [fullName, setFullName] = useState('');
@@ -33,7 +34,7 @@ const Auth = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRoleType>('client');
-  const [errors, setErrors] = useState<{ email?: string; phone?: string; password?: string; confirmPassword?: string }>({});
+  const [errors, setErrors] = useState<{ username?: string; email?: string; phone?: string; password?: string; confirmPassword?: string }>({});
 
   // Redirect if already logged in
   useEffect(() => {
@@ -42,37 +43,33 @@ const Auth = () => {
     }
   }, [user, loading, navigate]);
 
+  // Check if username looks like an email or phone
+  const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  const isPhone = (value: string) => /^\+?[1-9]\d{7,14}$/.test(value);
+
   const validateForm = () => {
     const newErrors: typeof errors = {};
 
-    // Phone is required for signup, optional for login
-    if (mode === 'signup') {
+    if (mode === 'login') {
+      // For login: username (email or phone) is required
+      if (!username.trim()) {
+        newErrors.username = "Email ou numéro de téléphone requis";
+      } else if (!isEmail(username) && !isPhone(username)) {
+        newErrors.username = "Format invalide (email ou numéro de téléphone)";
+      }
+    } else {
+      // For signup: phone is required
       const phoneResult = phoneSchema.safeParse(phone);
       if (!phoneResult.success) {
         newErrors.phone = phoneResult.error.errors[0].message;
       }
-    } else {
-      // For login, either phone or email is required
-      if (!phone && !email) {
-        newErrors.phone = "Numéro de téléphone ou email requis";
-      } else if (phone) {
-        const phoneResult = phoneSchema.safeParse(phone);
-        if (!phoneResult.success) {
-          newErrors.phone = phoneResult.error.errors[0].message;
-        }
-      } else if (email) {
+
+      // Email is optional for signup
+      if (email && email.trim() !== '') {
         const emailResult = z.string().email("Email invalide").safeParse(email);
         if (!emailResult.success) {
           newErrors.email = emailResult.error.errors[0].message;
         }
-      }
-    }
-
-    // Email is optional for signup
-    if (email && email.trim() !== '') {
-      const emailResult = z.string().email("Email invalide").safeParse(email);
-      if (!emailResult.success) {
-        newErrors.email = emailResult.error.errors[0].message;
       }
     }
 
@@ -111,11 +108,11 @@ const Auth = () => {
           });
         }
       } else {
-        // For login, use phone if provided, otherwise email
-        if (phone) {
-          result = await signInWithPhone(phone, password);
+        // For login, determine if username is email or phone
+        if (isEmail(username)) {
+          result = await signIn(username, password);
         } else {
-          result = await signIn(email, password);
+          result = await signInWithPhone(username, password);
         }
       }
 
@@ -218,7 +215,29 @@ const Auth = () => {
             </Tabs>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Nom complet - only for signup */}
+              {/* Login mode: single username field */}
+              {mode === 'login' && (
+                <div className="space-y-2">
+                  <Label htmlFor="username" className="flex items-center gap-2 text-muted-foreground">
+                    <User className="h-4 w-4" />
+                    Email ou numéro de téléphone
+                  </Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="email@exemple.com ou +225 XX XX XX XX"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className={`h-12 ${errors.username ? "border-destructive" : ""}`}
+                    disabled={isSubmitting}
+                  />
+                  {errors.username && (
+                    <p className="text-sm text-destructive">{errors.username}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Signup mode: Nom complet */}
               {mode === 'signup' && (
                 <div className="space-y-2">
                   <Label htmlFor="fullName" className="flex items-center gap-2 text-muted-foreground">
@@ -237,45 +256,48 @@ const Auth = () => {
                 </div>
               )}
 
-              {/* Numéro de téléphone */}
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="h-4 w-4" />
-                  Numéro de téléphone {mode === 'signup' ? '' : '(ou email)'}
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+225 XX XX XX XX XX"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className={`h-12 ${errors.phone ? "border-destructive" : ""}`}
-                  disabled={isSubmitting}
-                />
-                {errors.phone && (
-                  <p className="text-sm text-destructive">{errors.phone}</p>
-                )}
-              </div>
-
-              {/* Email */}
-              <div className="space-y-2">
-                <Label htmlFor="email" className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  Email {mode === 'signup' ? '(optionnel)' : ''}
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="email@exemple.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={`h-12 ${errors.email ? "border-destructive" : ""}`}
-                  disabled={isSubmitting}
-                />
-                {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email}</p>
-                )}
-              </div>
+              {/* Signup mode: Numéro de téléphone */}
+              {mode === 'signup' && (
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="flex items-center gap-2 text-muted-foreground">
+                    <Phone className="h-4 w-4" />
+                    Numéro de téléphone
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="+225 XX XX XX XX XX"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className={`h-12 ${errors.phone ? "border-destructive" : ""}`}
+                    disabled={isSubmitting}
+                  />
+                  {errors.phone && (
+                    <p className="text-sm text-destructive">{errors.phone}</p>
+                  )}
+                </div>
+              )}
+              {/* Signup mode: Email (optionnel) */}
+              {mode === 'signup' && (
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="flex items-center gap-2 text-muted-foreground">
+                    <Mail className="h-4 w-4" />
+                    Email (optionnel)
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="email@exemple.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={`h-12 ${errors.email ? "border-destructive" : ""}`}
+                    disabled={isSubmitting}
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-destructive">{errors.email}</p>
+                  )}
+                </div>
+              )}
 
               {/* Mot de passe */}
               <div className="space-y-2">
