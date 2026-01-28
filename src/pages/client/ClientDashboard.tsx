@@ -9,6 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Package, Search, ShoppingCart, MapPin, Star } from 'lucide-react';
 
+// Helper function to get full image URL
+const getImageUrl = (imagePath: string | null): string | null => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  return `https://dvbgytmkysaztbdqosup.supabase.co/storage/v1/object/public/product-images/${imagePath}`;
+};
+
 const ClientDashboard = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -151,10 +160,20 @@ const ClientDashboard = () => {
             </Card>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {featuredProducts.map((product) => (
+              {featuredProducts.map((product) => {
+                const mainImage = product.images && product.images.length > 0 ? getImageUrl(product.images[0]) : null;
+                return (
                 <Card key={product.id} className="overflow-hidden">
                   <div className="aspect-video bg-muted flex items-center justify-center">
-                    <Package className="h-12 w-12 text-muted-foreground" />
+                    {mainImage ? (
+                      <img
+                        src={mainImage}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Package className="h-12 w-12 text-muted-foreground" />
+                    )}
                   </div>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
@@ -188,7 +207,8 @@ const ClientDashboard = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
