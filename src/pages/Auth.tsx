@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { z } from 'zod';
 import { VoiceAssistant } from '@/components/voice';
+import logoYafoy from '@/assets/logo-yafoy.png';
 
 // Validation schemas
 const emailSchema = z.string().email("Email invalide").max(255);
@@ -233,12 +234,7 @@ const Auth = () => {
           <div className="max-w-lg">
             {/* Logo */}
             <Link to="/" className="inline-flex items-center gap-3 group mb-12">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/25 group-hover:shadow-primary/40 transition-shadow">
-                <span className="text-3xl font-bold text-primary-foreground">Y</span>
-              </div>
-              <span className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                YAFOY
-              </span>
+              <img src={logoYafoy} alt="YAFOY" className="h-16 w-auto" />
             </Link>
 
             {/* Headline */}
@@ -297,13 +293,8 @@ const Auth = () => {
           <div className="w-full max-w-md animate-fade-in">
             {/* Mobile Logo */}
             <div className="lg:hidden text-center mb-8">
-              <Link to="/" className="inline-flex items-center gap-3 group">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/25">
-                  <span className="text-2xl font-bold text-primary-foreground">Y</span>
-                </div>
-                <span className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                  YAFOY
-                </span>
+              <Link to="/" className="inline-flex items-center justify-center gap-3 group">
+                <img src={logoYafoy} alt="YAFOY" className="h-14 w-auto" />
               </Link>
               <p className="mt-3 text-sm text-muted-foreground">
                 La marketplace de location pour vos cérémonies
