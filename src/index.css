@@ -1,3 +1,6 @@
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,39 +10,39 @@
 @layer base {
   :root {
     /* Blanc Cassé - Arrière-plan pour lisibilité */
-    --background: 40 33% 98%;
-    --foreground: 220 30% 15%;
+    --background: 0 0% 96%;
+    --foreground: 0 0% 9%;
 
     /* Cards légèrement plus chaudes */
-    --card: 40 25% 97%;
-    --card-foreground: 220 30% 15%;
+    --card: 0 0% 98%;
+    --card-foreground: 0 0% 9%;
 
-    --popover: 40 25% 97%;
-    --popover-foreground: 220 30% 15%;
+    --popover: 0 0% 89%;
+    --popover-foreground: 0 0% 9%;
 
     /* Orange Vif - Boutons d'action principaux */
-    --primary: 24 95% 53%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 20 90% 48%;
+    --primary-foreground: 33 100% 96%;
 
     /* Bleu Nuit - Navigation et textes importants */
-    --secondary: 220 60% 20%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 0 0% 32%;
+    --secondary-foreground: 0 0% 98%;
 
     /* Gris Anthracite - Descriptions et éléments discrets */
-    --muted: 220 15% 92%;
-    --muted-foreground: 220 10% 40%;
+    --muted: 0 0% 63%;
+    --muted-foreground: 0 0% 9%;
 
     /* Bleu Royal - Éléments interactifs */
-    --accent: 220 80% 50%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 47 100% 96%;
+    --accent-foreground: 37 92% 50%;
 
     /* Rouge Corail - Alertes et annulations */
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 85% 97%;
 
-    --border: 220 20% 88%;
-    --input: 220 20% 88%;
-    --ring: 24 95% 53%;
+    --border: 0 0% 83%;
+    --input: 0 0% 83%;
+    --ring: 20 90% 48%;
 
     --radius: 0.75rem;
 
@@ -59,46 +62,65 @@
 
     /* Sidebar avec Bleu Nuit */
     --sidebar-background: 220 60% 20%;
-    --sidebar-foreground: 40 33% 98%;
-    --sidebar-primary: 24 95% 53%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 50% 30%;
-    --sidebar-accent-foreground: 40 33% 98%;
-    --sidebar-border: 220 40% 25%;
-    --sidebar-ring: 24 95% 53%;
+    --sidebar-foreground: 0 0% 9%;
+    --sidebar-primary: 20 90% 48%;
+    --sidebar-primary-foreground: 33 100% 96%;
+    --sidebar-accent: 0 0% 32%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 83%;
+    --sidebar-ring: 20 90% 48%;
+    --chart-1: 27 95% 60%;
+    --chart-2: 43 96% 56%;
+    --chart-3: 47 95% 53%;
+    --chart-4: 24 94% 53%;
+    --chart-5: 0 0% 45%;
+    --sidebar: 0 0% 98%;
+    --font-sans: 'Roboto', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+    --font-serif: 'Libre Caslon Text', ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+    --font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+    --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+    --tracking-normal: 0em;
+    --spacing: 0.25rem;
   }
 
   .dark {
     /* Mode sombre - Bleu Nuit comme base */
-    --background: 220 60% 8%;
-    --foreground: 40 33% 98%;
+    --background: 0 0% 9%;
+    --foreground: 0 0% 98%;
 
-    --card: 220 50% 12%;
-    --card-foreground: 40 33% 98%;
+    --card: 0 0% 14%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 220 50% 12%;
-    --popover-foreground: 40 33% 98%;
+    --popover: 0 0% 25%;
+    --popover-foreground: 0 0% 98%;
 
     /* Orange Vif reste vibrant */
-    --primary: 24 95% 53%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 27 95% 60%;
+    --primary-foreground: 12 81% 14%;
 
     /* Bleu Royal pour secondaire en mode sombre */
-    --secondary: 220 80% 50%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 0 0% 45%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 220 30% 18%;
-    --muted-foreground: 220 15% 65%;
+    --muted: 0 0% 45%;
+    --muted-foreground: 0 0% 98%;
 
-    --accent: 220 80% 60%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 20 91% 14%;
+    --accent-foreground: 43 96% 56%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 85% 97%;
 
-    --border: 220 30% 20%;
-    --input: 220 30% 20%;
-    --ring: 24 95% 53%;
+    --border: 0 0% 32%;
+    --input: 0 0% 32%;
+    --ring: 27 95% 60%;
 
     --gold: 45 93% 47%;
     --gold-foreground: 220 30% 15%;
@@ -107,13 +129,27 @@
     --success-foreground: 0 0% 100%;
 
     --sidebar-background: 220 60% 6%;
-    --sidebar-foreground: 40 33% 98%;
-    --sidebar-primary: 24 95% 53%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 50% 15%;
-    --sidebar-accent-foreground: 40 33% 98%;
-    --sidebar-border: 220 40% 12%;
-    --sidebar-ring: 24 95% 53%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 27 95% 60%;
+    --sidebar-primary-foreground: 12 81% 14%;
+    --sidebar-accent: 43 96% 56%;
+    --sidebar-accent-foreground: 20 91% 14%;
+    --sidebar-border: 0 0% 32%;
+    --sidebar-ring: 27 95% 60%;
+    --chart-1: 30 97% 72%;
+    --chart-2: 45 96% 64%;
+    --chart-3: 48 96% 76%;
+    --chart-4: 27 95% 60%;
+    --chart-5: 0 0% 45%;
+    --sidebar: 0 0% 14%;
+    --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+    --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+    --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+    --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+    --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   }
 }
 
@@ -133,19 +169,19 @@
   .text-gold {
     color: hsl(var(--gold));
   }
-  
+
   .bg-gold {
     background-color: hsl(var(--gold));
   }
-  
+
   .text-success {
     color: hsl(var(--success));
   }
-  
+
   .bg-success {
     background-color: hsl(var(--success));
   }
-  
+
   .border-gold {
     border-color: hsl(var(--gold));
   }
