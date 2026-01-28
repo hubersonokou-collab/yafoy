@@ -4,19 +4,18 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Phone, UserCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Mail, Phone, UserCircle, Eye, EyeOff, Loader2, LogIn, UserPlus, Lock, User } from 'lucide-react';
 import { z } from 'zod';
 
 // Validation schemas
-const emailSchema = z.string().email("Email invalide").max(255);
+const emailSchema = z.string().email("Email invalide").max(255).optional().or(z.literal(''));
 const passwordSchema = z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères").max(100);
 const phoneSchema = z.string().regex(/^\+?[1-9]\d{7,14}$/, "Numéro de téléphone invalide");
 
 type AuthMode = 'login' | 'signup';
-type AuthMethod = 'email' | 'phone';
 type UserRoleType = 'client' | 'provider';
 
 const Auth = () => {
@@ -25,12 +24,13 @@ const Auth = () => {
   const { toast } = useToast();
 
   const [mode, setMode] = useState<AuthMode>('login');
-  const [method, setMethod] = useState<AuthMethod>('email');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRoleType>('client');
   const [errors, setErrors] = useState<{ email?: string; phone?: string; password?: string; confirmPassword?: string }>({});
@@ -45,15 +45,34 @@ const Auth = () => {
   const validateForm = () => {
     const newErrors: typeof errors = {};
 
-    if (method === 'email') {
-      const emailResult = emailSchema.safeParse(email);
-      if (!emailResult.success) {
-        newErrors.email = emailResult.error.errors[0].message;
-      }
-    } else {
+    // Phone is required for signup, optional for login
+    if (mode === 'signup') {
       const phoneResult = phoneSchema.safeParse(phone);
       if (!phoneResult.success) {
         newErrors.phone = phoneResult.error.errors[0].message;
+      }
+    } else {
+      // For login, either phone or email is required
+      if (!phone && !email) {
+        newErrors.phone = "Numéro de téléphone ou email requis";
+      } else if (phone) {
+        const phoneResult = phoneSchema.safeParse(phone);
+        if (!phoneResult.success) {
+          newErrors.phone = phoneResult.error.errors[0].message;
+        }
+      } else if (email) {
+        const emailResult = z.string().email("Email invalide").safeParse(email);
+        if (!emailResult.success) {
+          newErrors.email = emailResult.error.errors[0].message;
+        }
+      }
+    }
+
+    // Email is optional for signup
+    if (email && email.trim() !== '') {
+      const emailResult = z.string().email("Email invalide").safeParse(email);
+      if (!emailResult.success) {
+        newErrors.email = emailResult.error.errors[0].message;
       }
     }
 
@@ -81,26 +100,22 @@ const Auth = () => {
       let result;
 
       if (mode === 'signup') {
-        if (method === 'email') {
-          result = await signUp(email, password, selectedRole);
-        } else {
-          result = await signUpWithPhone(phone, password, selectedRole);
-        }
+        // For signup, always use phone (required)
+        result = await signUpWithPhone(phone, password, selectedRole);
 
         if (!result.error) {
           toast({
             title: "Compte créé !",
-            description: method === 'email' 
-              ? "Vérifiez votre email pour confirmer votre compte." 
-              : "Votre compte a été créé avec succès.",
+            description: "Votre compte a été créé avec succès.",
             className: "bg-success text-success-foreground",
           });
         }
       } else {
-        if (method === 'email') {
-          result = await signIn(email, password);
-        } else {
+        // For login, use phone if provided, otherwise email
+        if (phone) {
           result = await signInWithPhone(phone, password);
+        } else {
+          result = await signIn(email, password);
         }
       }
 
@@ -171,90 +186,103 @@ const Auth = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-md animate-fade-in">
         {/* Logo et titre */}
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-secondary">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <span className="text-3xl font-bold text-primary">Y</span>
+          </div>
+          <h1 className="text-2xl font-bold text-secondary">
             YAFOY
           </h1>
-          <p className="mt-2 text-muted-foreground">
-            Marketplace pour vos cérémonies
+          <p className="mt-1 text-sm text-muted-foreground">
+            La marketplace de location pour vos cérémonies
           </p>
         </div>
 
         <Card className="border-border shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">
-              {mode === 'login' ? 'Connexion' : 'Inscription'}
-            </CardTitle>
-            <CardDescription className="text-center">
-              {mode === 'login' 
-                ? 'Connectez-vous à votre compte' 
-                : 'Créez votre compte YAFOY'}
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent>
+          <CardContent className="pt-6">
             {/* Tabs pour mode connexion/inscription */}
             <Tabs value={mode} onValueChange={(v) => setMode(v as AuthMode)} className="mb-6">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Connexion</TabsTrigger>
-                <TabsTrigger value="signup">Inscription</TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            {/* Tabs pour méthode email/téléphone */}
-            <Tabs value={method} onValueChange={(v) => setMethod(v as AuthMethod)} className="mb-6">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="email" className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  Email
+              <TabsList className="grid w-full grid-cols-2 h-12">
+                <TabsTrigger value="login" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <LogIn className="h-4 w-4" />
+                  Connexion
                 </TabsTrigger>
-                <TabsTrigger value="phone" className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  Téléphone
+                <TabsTrigger value="signup" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <UserPlus className="h-4 w-4" />
+                  Inscription
                 </TabsTrigger>
               </TabsList>
             </Tabs>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {method === 'email' ? (
+              {/* Nom complet - only for signup */}
+              {mode === 'signup' && (
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="fullName" className="flex items-center gap-2 text-muted-foreground">
+                    <User className="h-4 w-4" />
+                    Nom complet (optionnel)
+                  </Label>
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="votre@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={errors.email ? "border-destructive" : ""}
+                    id="fullName"
+                    type="text"
+                    placeholder="Jean Dupont"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
                     disabled={isSubmitting}
+                    className="h-12"
                   />
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email}</p>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Numéro de téléphone</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+225 XX XX XX XX XX"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className={errors.phone ? "border-destructive" : ""}
-                    disabled={isSubmitting}
-                  />
-                  {errors.phone && (
-                    <p className="text-sm text-destructive">{errors.phone}</p>
-                  )}
                 </div>
               )}
 
+              {/* Numéro de téléphone */}
               <div className="space-y-2">
-                <Label htmlFor="password">Mot de passe</Label>
+                <Label htmlFor="phone" className="flex items-center gap-2 text-muted-foreground">
+                  <Phone className="h-4 w-4" />
+                  Numéro de téléphone {mode === 'signup' ? '' : '(ou email)'}
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+225 XX XX XX XX XX"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className={`h-12 ${errors.phone ? "border-destructive" : ""}`}
+                  disabled={isSubmitting}
+                />
+                {errors.phone && (
+                  <p className="text-sm text-destructive">{errors.phone}</p>
+                )}
+              </div>
+
+              {/* Email */}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="flex items-center gap-2 text-muted-foreground">
+                  <Mail className="h-4 w-4" />
+                  Email {mode === 'signup' ? '(optionnel)' : ''}
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="email@exemple.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={`h-12 ${errors.email ? "border-destructive" : ""}`}
+                  disabled={isSubmitting}
+                />
+                {errors.email && (
+                  <p className="text-sm text-destructive">{errors.email}</p>
+                )}
+              </div>
+
+              {/* Mot de passe */}
+              <div className="space-y-2">
+                <Label htmlFor="password" className="flex items-center gap-2 text-muted-foreground">
+                  <Lock className="h-4 w-4" />
+                  Mot de passe
+                </Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -262,7 +290,7 @@ const Auth = () => {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={errors.password ? "border-destructive pr-10" : "pr-10"}
+                    className={`h-12 pr-10 ${errors.password ? "border-destructive" : ""}`}
                     disabled={isSubmitting}
                   />
                   <button
@@ -270,7 +298,7 @@ const Auth = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
                 {errors.password && (
@@ -278,32 +306,46 @@ const Auth = () => {
                 )}
               </div>
 
+              {/* Confirmer mot de passe - only for signup */}
               {mode === 'signup' && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={errors.confirmPassword ? "border-destructive" : ""}
-                      disabled={isSubmitting}
-                    />
+                    <Label htmlFor="confirmPassword" className="flex items-center gap-2 text-muted-foreground">
+                      <Lock className="h-4 w-4" />
+                      Confirmer le mot de passe
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className={`h-12 pr-10 ${errors.confirmPassword ? "border-destructive" : ""}`}
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
                     {errors.confirmPassword && (
                       <p className="text-sm text-destructive">{errors.confirmPassword}</p>
                     )}
                   </div>
 
+                  {/* Role selection */}
                   <div className="space-y-2">
-                    <Label>Je suis...</Label>
+                    <Label className="text-muted-foreground">Je suis...</Label>
                     <div className="grid grid-cols-2 gap-4">
                       <Button
                         type="button"
                         variant={selectedRole === 'client' ? 'default' : 'outline'}
                         onClick={() => setSelectedRole('client')}
-                        className="w-full"
+                        className="w-full h-12"
                         disabled={isSubmitting}
                       >
                         Client
@@ -312,7 +354,7 @@ const Auth = () => {
                         type="button"
                         variant={selectedRole === 'provider' ? 'default' : 'outline'}
                         onClick={() => setSelectedRole('provider')}
-                        className="w-full"
+                        className="w-full h-12"
                         disabled={isSubmitting}
                       >
                         Prestataire
@@ -324,7 +366,7 @@ const Auth = () => {
 
               <Button 
                 type="submit" 
-                className="w-full" 
+                className="w-full h-12 text-base font-medium" 
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -339,37 +381,38 @@ const Auth = () => {
             </form>
           </CardContent>
 
-          <CardFooter className="flex flex-col gap-4">
+          <CardFooter className="flex flex-col gap-4 pb-6">
             <div className="relative w-full">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Ou</span>
+                <span className="bg-card px-2 text-primary">OU</span>
               </div>
             </div>
 
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full h-12"
               onClick={handleGuestLogin}
               disabled={isSubmitting}
             >
-              <UserCircle className="mr-2 h-4 w-4" />
+              <UserPlus className="mr-2 h-4 w-4" />
               Continuer en tant qu'invité
             </Button>
           </CardFooter>
         </Card>
 
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+        <p className="mt-4 text-center text-xs text-muted-foreground">
           En continuant, vous acceptez nos{' '}
-          <a href="#" className="text-accent hover:underline">
-            Conditions d'utilisation
+          <a href="#" className="text-primary hover:underline">
+            conditions d'utilisation
           </a>{' '}
           et notre{' '}
-          <a href="#" className="text-accent hover:underline">
-            Politique de confidentialité
+          <a href="#" className="text-primary hover:underline">
+            politique de confidentialité
           </a>
+          .
         </p>
       </div>
     </div>
