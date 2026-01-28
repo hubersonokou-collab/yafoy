@@ -1,280 +1,370 @@
 
 
-# Plan d'Alignement avec le Cahier des Charges YAFOY
+# Plan de Completion du Projet YAFOY
 
-Apres analyse du cahier des charges que vous avez uploade et de l'etat actuel du projet, voici un plan complet pour aligner l'application avec les specifications techniques et fonctionnelles.
-
----
-
-## Etat Actuel vs Cahier des Charges
-
-### Ce qui est deja implemente
-
-| Fonctionnalite | Statut | Details |
-|----------------|--------|---------|
-| Authentification multi-roles | Partiel | Email/telephone/invite - SMS Twilio a configurer |
-| Structure base de donnees | Complet | Tables categories, products, orders, profiles, user_roles |
-| Dashboard Super Admin | Complet | Statistiques, gestion utilisateurs/produits/commandes |
-| Dashboard Prestataire | Complet | Gestion produits avec upload images, stats |
-| Dashboard Client | Complet | Catalogue, commandes, recherche |
-| Stockage images | Complet | Bucket product-images avec RLS |
-
-### Ce qui manque (selon le cahier des charges)
-
-| Fonctionnalite | Priorite | Section CDC |
-|----------------|----------|-------------|
-| Interface "Voice-First" et assistant vocal | Haute | Section 3.9 |
-| Messagerie interne avec notes vocales | Haute | Section 3.6 |
-| Systeme d'avis et notations | Haute | Section 3.7 |
-| Paiement securise avec sequestre | Haute | Section 3.4 |
-| Notifications (email/SMS/in-app) | Moyenne | Section 3.8 |
-| Workflow complet des commandes | Moyenne | Section 3.5 |
-| Profil prestataire public enrichi | Moyenne | Section 3.2 |
-| Geolocalisation et recherche avancee | Basse | Section 3.3 |
+Ce plan detaille toutes les interfaces a creer pour completer les deux parcours utilisateurs principaux selon le cahier des charges.
 
 ---
 
-## Plan d'Implementation en Phases
+## Etat Actuel du Projet
 
-### Phase 1: Accessibilite et Interface Vocale (Pierre Angulaire)
+### Deja Implemente
+| Module | Statut |
+|--------|--------|
+| Authentification multi-roles (email/telephone/invite) | Complet |
+| Interface vocale (Web Speech API) | Complet |
+| Dashboard Admin/Super Admin | Complet |
+| Dashboard Provider (produits, commandes) | Partiel |
+| Dashboard Client (catalogue, commandes) | Partiel |
+| Upload images produits | Complet |
 
-Selon le cahier des charges, l'accessibilite est **la pierre angulaire du projet** pour les utilisateurs analphabetes ou a faible litteratie numerique.
-
-**1.1 Interface "Icon-First"**
-- Refonte de la navigation avec des icones universelles grandes et explicites
-- Utilisation d'images reelles pour les categories et produits
-- Texte minimaliste avec icones predominantes
-- Boutons d'action visuels avec retour tactile
-
-**1.2 Assistant Vocal Omniprésent**
-- Integration Web Speech API pour la reconnaissance vocale
-- Synthese vocale (Text-to-Speech) pour lire les informations
-- Bouton microphone flottant sur toutes les pages
-- Commandes vocales: "Rechercher", "Reserver", "Confirmer", "Annuler"
-- Guidage vocal etape par etape
-
-**1.3 Saisie Vocale**
-- Champ de recherche avec dictee vocale
-- Formulaires avec alternative vocale
-- Transcription temps reel
-
-**Fichiers a creer:**
-```text
-src/hooks/useVoice.tsx          - Hook pour reconnaissance/synthese vocale
-src/components/voice/
-  VoiceButton.tsx               - Bouton microphone flottant
-  VoiceSearch.tsx               - Recherche vocale
-  VoiceAssistant.tsx            - Assistant vocal contextuel
-  VoiceInput.tsx                - Champ de saisie vocale
-```
+### Manquant (selon le CDC)
+| Module | Priorite |
+|--------|----------|
+| Page Favoris Client | Haute |
+| Page Parametres Client/Provider | Haute |
+| Page Commandes Provider | Haute |
+| Profil Public Prestataire | Haute |
+| Page Detail Produit | Haute |
+| Messagerie interne | Moyenne |
+| Systeme d'avis et notations | Moyenne |
+| Notifications in-app | Moyenne |
 
 ---
 
-### Phase 2: Messagerie Interne avec Notes Vocales
+## Parcours 1: Organisateur de Ceremonie (Client)
 
-**2.1 Tables de base de donnees**
-```text
-conversations      - id, client_id, provider_id, order_id, created_at
-messages           - id, conversation_id, sender_id, content_type (text/voice), 
-                     content, audio_url, transcription, created_at
-```
+### 1.1 Page d'Accueil Enrichie (Icon-First)
+**Fichier:** `src/pages/Index.tsx`
 
-**2.2 Fonctionnalites**
-- Enregistrement et envoi de notes vocales
-- Transcription automatique (via API IA)
-- Lecture vocale des messages texte recus
-- Historique des conversations lie aux commandes
-- Bucket de stockage "voice-messages"
+Modifications:
+- Ajouter une grille de categories avec grandes icones visuelles
+- Integrer la recherche vocale directement dans le hero
+- Ajouter des boutons d'action visuels avec retour tactile
+- Afficher les produits populaires avec images reelles
 
-**Fichiers a creer:**
-```text
-src/components/messaging/
-  ConversationList.tsx          - Liste des conversations
-  ChatWindow.tsx                - Fenetre de chat
-  VoiceRecorder.tsx             - Enregistrement audio
-  MessageBubble.tsx             - Bulle de message
-src/pages/messages/
-  Messages.tsx                  - Page messagerie
-```
+### 1.2 Page Detail Produit
+**Nouveau fichier:** `src/pages/client/ProductDetail.tsx`
+
+Contenu:
+- Galerie d'images avec carousel
+- Informations du prestataire avec badge verifie
+- Prix et caution clairement affiches
+- Bouton de reservation avec option vocale
+- Avis des clients precedents
+- Bouton "Contacter le prestataire"
+- Lecture vocale de la description (TTS)
+
+### 1.3 Page Favoris
+**Nouveau fichier:** `src/pages/client/ClientFavorites.tsx`
+
+Contenu:
+- Liste des produits favoris
+- Actions rapides (supprimer, reserver)
+- Interface Icon-First avec grandes vignettes
+
+### 1.4 Page Parametres Client
+**Nouveau fichier:** `src/pages/client/ClientSettings.tsx`
+
+Contenu:
+- Modification du profil (nom, telephone, email)
+- Avatar/photo de profil
+- Preferences de notification
+- Gestion des adresses de livraison
+- Deconnexion
+
+### 1.5 Amelioration Catalogue
+**Fichier:** `src/pages/client/ClientCatalog.tsx`
+
+Modifications:
+- Integrer VoiceSearch dans les filtres
+- Afficher les images des produits (pas seulement l'icone Package)
+- Ajouter bouton favori sur chaque produit
+- Afficher note moyenne du prestataire
+
+### 1.6 Amelioration Page Commandes Client
+**Fichier:** `src/pages/client/ClientOrders.tsx`
+
+Modifications:
+- Timeline visuelle du statut de commande
+- Bouton "Contacter prestataire" par commande
+- Option "Laisser un avis" pour commandes terminees
+- Affichage des items de la commande
 
 ---
 
-### Phase 3: Systeme d'Avis et Notations
+## Parcours 2: Prestataire (Gestion Simplifiee)
 
-**3.1 Tables de base de donnees**
-```text
-reviews            - id, order_id, client_id, provider_id, rating (1-5),
-                     quality_rating, professionalism_rating, value_rating,
-                     comment, audio_url, provider_response, created_at
-```
+### 2.1 Page Commandes Prestataire
+**Nouveau fichier:** `src/pages/provider/ProviderOrders.tsx`
 
-**3.2 Fonctionnalites**
-- Notation multi-criteres (Qualite, Professionnalisme, Rapport Qualite/Prix)
-- Avis texte ou vocal
-- Reponse du prestataire
-- Calcul de note moyenne par prestataire
-- Affichage des avis sur les profils publics
+Contenu:
+- Liste des commandes recues avec filtres (en attente, confirmees, terminees)
+- Actions: Accepter, Refuser, Marquer comme termine
+- Detail de chaque commande avec informations client
+- Timeline de progression
+- Bouton "Contacter client"
 
-**Fichiers a creer:**
+### 2.2 Page Parametres Prestataire
+**Nouveau fichier:** `src/pages/provider/ProviderSettings.tsx`
+
+Contenu:
+- Modification du profil professionnel
+- Description de l'entreprise
+- Conditions generales de location
+- Zone de service/localisation
+- Horaires de disponibilite
+- Documents et certifications
+
+### 2.3 Profil Public Prestataire
+**Nouveau fichier:** `src/pages/provider/ProviderPublicProfile.tsx`
+
+Contenu:
+- Galerie de tous les produits
+- Informations de l'entreprise
+- Avis et notations des clients
+- Badge "Verifie" si applicable
+- Statistiques (nombre de locations, note moyenne)
+- Bouton de contact
+
+### 2.4 Amelioration Dashboard Prestataire
+**Fichier:** `src/pages/provider/ProviderDashboard.tsx`
+
+Modifications:
+- Ajouter notifications des nouvelles commandes
+- Quick actions avec grandes icones
+- Statistiques de performance
+
+---
+
+## Composants Partages a Creer
+
+### 3.1 Composants d'Avis
+**Nouveaux fichiers:**
 ```text
 src/components/reviews/
-  ReviewForm.tsx                - Formulaire d'avis (texte/vocal)
-  StarRating.tsx                - Composant de notation etoiles
-  ReviewCard.tsx                - Carte d'avis
-  ProviderRating.tsx            - Resume notation prestataire
+  StarRating.tsx        - Composant d'etoiles interactif
+  ReviewCard.tsx        - Carte d'avis individuel
+  ReviewForm.tsx        - Formulaire pour laisser un avis
+  ReviewList.tsx        - Liste paginee des avis
 ```
 
----
+### 3.2 Composants Favoris
+**Nouveau fichier:** `src/components/favorites/FavoriteButton.tsx`
 
-### Phase 4: Workflow Complet des Commandes
+Contenu:
+- Bouton coeur pour ajouter/retirer des favoris
+- Animation au clic
+- Integration avec table favoris
 
-**4.1 Etats de commande enrichis**
+### 3.3 Composants de Commande
+**Nouveaux fichiers:**
 ```text
-draft -> pending -> quoted -> confirmed -> deposit_paid -> in_progress -> completed -> reviewed
-```
-
-**4.2 Fonctionnalites**
-- Demande de devis avec message vocal
-- Acceptation/Refus par le prestataire
-- Gestion des acomptes
-- Validation post-prestation par le client
-- Declenchement automatique de l'evaluation
-
-**Fichiers a modifier:**
-```text
-src/pages/client/ClientOrders.tsx    - Ajouter workflow complet
-src/pages/provider/ProviderOrders.tsx - Creer page commandes prestataire
 src/components/orders/
-  OrderTimeline.tsx                   - Timeline visuelle du workflow
-  QuoteDialog.tsx                     - Dialog de creation de devis
-  DepositPayment.tsx                  - Composant paiement acompte
+  OrderTimeline.tsx     - Timeline visuelle du statut
+  OrderCard.tsx         - Carte de commande reutilisable
+  OrderActions.tsx      - Actions contextuelles (accepter, refuser, etc.)
+```
+
+### 3.4 Composant Profil Prestataire
+**Nouveau fichier:** `src/components/provider/ProviderCard.tsx`
+
+Contenu:
+- Mini-carte affichant les infos du prestataire
+- Note moyenne, badge verifie
+- Bouton "Voir profil"
+
+### 3.5 Galerie d'Images
+**Nouveau fichier:** `src/components/products/ImageGallery.tsx`
+
+Contenu:
+- Carousel d'images avec miniatures
+- Zoom sur clic
+- Navigation fleches et swipe
+
+---
+
+## Migrations Base de Donnees
+
+### 4.1 Table Favoris
+```sql
+CREATE TABLE favorites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, product_id)
+);
+
+-- RLS
+ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their favorites" ON favorites
+  FOR ALL USING (user_id = auth.uid());
+```
+
+### 4.2 Table Avis
+```sql
+CREATE TABLE reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  client_id UUID NOT NULL REFERENCES auth.users(id),
+  provider_id UUID NOT NULL REFERENCES auth.users(id),
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  quality_rating INTEGER CHECK (quality_rating >= 1 AND quality_rating <= 5),
+  professionalism_rating INTEGER CHECK (professionalism_rating >= 1 AND professionalism_rating <= 5),
+  value_rating INTEGER CHECK (value_rating >= 1 AND value_rating <= 5),
+  comment TEXT,
+  provider_response TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(order_id, client_id)
+);
+
+-- RLS
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view reviews" ON reviews FOR SELECT USING (true);
+CREATE POLICY "Clients can create reviews" ON reviews FOR INSERT WITH CHECK (client_id = auth.uid());
+CREATE POLICY "Providers can respond to reviews" ON reviews FOR UPDATE 
+  USING (provider_id = auth.uid())
+  WITH CHECK (provider_id = auth.uid());
+```
+
+### 4.3 Table Notifications
+```sql
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT,
+  read BOOLEAN DEFAULT false,
+  data JSONB,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their notifications" ON notifications
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can update their notifications" ON notifications
+  FOR UPDATE USING (user_id = auth.uid());
 ```
 
 ---
 
-### Phase 5: Systeme de Paiement Securise
+## Routes a Ajouter
 
-**5.1 Integration Stripe Connect (recommande)**
-- Compte connecte par prestataire
-- Paiement client -> Sequestre plateforme
-- Liberation fonds apres validation
-- Commission automatique
+Modification de `src/App.tsx`:
 
-**5.2 Tables de base de donnees**
 ```text
-payments           - id, order_id, amount, type (deposit/full), status,
-                     stripe_payment_id, created_at
-provider_accounts  - id, provider_id, stripe_account_id, is_verified
-```
+// Client Routes (nouveaux)
+/client/product/:id     -> ProductDetail.tsx
+/client/favorites       -> ClientFavorites.tsx
+/client/settings        -> ClientSettings.tsx
 
-**Fichiers a creer:**
-```text
-supabase/functions/
-  create-payment-intent/        - Creation intention de paiement
-  webhook-stripe/               - Webhook Stripe
-src/components/payments/
-  PaymentForm.tsx               - Formulaire de paiement
-  PaymentStatus.tsx             - Statut du paiement
+// Provider Routes (nouveaux)
+/provider/orders        -> ProviderOrders.tsx (remplace AdminOrders)
+/provider/settings      -> ProviderSettings.tsx
+/provider/profile/:id   -> ProviderPublicProfile.tsx
+
+// Route publique
+/provider/:id           -> ProviderPublicProfile.tsx (accessible sans auth)
 ```
 
 ---
 
-### Phase 6: Notifications Multi-Canal
+## Ordre d'Implementation
 
-**6.1 Tables de base de donnees**
-```text
-notifications      - id, user_id, type, title, body, read, data, created_at
-```
+### Etape 1: Infrastructure (migrations)
+1. Creer les tables favorites, reviews, notifications
+2. Configurer les RLS policies
 
-**6.2 Types de notifications**
-- In-app: Nouvelles demandes, messages, avis
-- Email: Confirmations, rappels (via Supabase Edge Functions)
-- SMS: Confirmations critiques (via Twilio)
+### Etape 2: Composants Reutilisables
+1. StarRating, FavoriteButton
+2. OrderTimeline, OrderCard
+3. ImageGallery, ProviderCard
 
-**Fichiers a creer:**
-```text
-supabase/functions/
-  send-notification/            - Envoi notifications multi-canal
-src/components/notifications/
-  NotificationBell.tsx          - Icone cloche avec badge
-  NotificationCenter.tsx        - Centre de notifications
-```
+### Etape 3: Pages Client
+1. ProductDetail (essentiel pour le parcours)
+2. ClientFavorites
+3. ClientSettings
+4. Ameliorations ClientCatalog et ClientOrders
 
----
+### Etape 4: Pages Prestataire
+1. ProviderOrders
+2. ProviderSettings
+3. ProviderPublicProfile
 
-### Phase 7: Profil Prestataire Public Enrichi
-
-**Fonctionnalites**
-- Galerie photo/video
-- Description des services
-- Conditions generales de vente
-- Calendrier de disponibilites
-- Statistiques publiques (note moyenne, nombre de prestations)
-- Badge "Verifie" pour prestataires valides
-
-**Fichiers a creer:**
-```text
-src/pages/provider/
-  ProviderPublicProfile.tsx     - Page profil public
-  ProviderCalendar.tsx          - Calendrier disponibilites
-src/components/provider/
-  ServiceGallery.tsx            - Galerie images/videos
-  AvailabilityCalendar.tsx      - Calendrier interactif
-```
+### Etape 5: Integration Vocale
+1. Ajouter commandes vocales pour les nouvelles pages
+2. TTS pour la lecture des informations produit
 
 ---
 
 ## Details Techniques
 
-### Technologies Utilisees (conformes au CDC)
+### Architecture des Composants
 
-| Couche | Technologie | Statut |
-|--------|-------------|--------|
-| Front-end | React + Vite + TypeScript | En place |
-| Styling | Tailwind CSS | En place |
-| Backend | Supabase (PostgreSQL) | En place |
-| Stockage | Supabase Storage | En place |
-| Auth | Supabase Auth | En place |
-| Edge Functions | Supabase Edge Functions | A utiliser |
-| Paiement | Stripe Connect | A integrer |
-| Voix | Web Speech API | A integrer |
-| Transcription | Lovable AI | A integrer |
-
-### Nouvelles Migrations Base de Donnees
-
-```sql
--- Tables a creer
-CREATE TABLE conversations (...)
-CREATE TABLE messages (...)
-CREATE TABLE reviews (...)
-CREATE TABLE notifications (...)
-CREATE TABLE payments (...)
-CREATE TABLE provider_accounts (...)
-CREATE TABLE provider_availability (...)
+```text
+src/
+  components/
+    favorites/
+      FavoriteButton.tsx
+    orders/
+      OrderTimeline.tsx
+      OrderCard.tsx
+      OrderActions.tsx
+    products/
+      ImageGallery.tsx
+      ProductCard.tsx
+    provider/
+      ProviderCard.tsx
+      ProviderStats.tsx
+    reviews/
+      StarRating.tsx
+      ReviewCard.tsx
+      ReviewForm.tsx
+      ReviewList.tsx
+    notifications/
+      NotificationBell.tsx
+      NotificationCenter.tsx
+  pages/
+    client/
+      ProductDetail.tsx
+      ClientFavorites.tsx
+      ClientSettings.tsx
+    provider/
+      ProviderOrders.tsx
+      ProviderSettings.tsx
+      ProviderPublicProfile.tsx
 ```
 
+### Interactions Vocales Prevues
+
+| Commande | Action |
+|----------|--------|
+| "Voir produit [nom]" | Ouvre le detail du produit |
+| "Ajouter aux favoris" | Ajoute le produit actuel aux favoris |
+| "Mes favoris" | Navigue vers la page favoris |
+| "Reserver ce produit" | Ouvre le dialogue de reservation |
+| "Lire la description" | TTS de la description produit |
+| "Contacter prestataire" | Ouvre le chat |
+
+### Palette de Couleurs (rappel)
+- **Orange Vif**: Boutons d'action principaux
+- **Bleu Nuit**: Navigation et textes importants
+- **Or/Jaune Dore**: Badges verifies et etoiles
+- **Vert Emeraude**: Validations
+- **Rouge Corail**: Alertes et annulations
+
 ---
 
-## Ordre de Priorite Recommande
+## Estimation des Fichiers
 
-1. **Phase 1: Interface Vocale** - Differenciateur cle du projet
-2. **Phase 3: Systeme d'Avis** - Essentiel pour la confiance
-3. **Phase 2: Messagerie** - Communication client-prestataire
-4. **Phase 4: Workflow Commandes** - Processus complet
-5. **Phase 5: Paiements** - Monetisation
-6. **Phase 6: Notifications** - Engagement utilisateur
-7. **Phase 7: Profils Enrichis** - Optimisation
-
----
-
-## Prochaine Etape
-
-Pour commencer, je recommande de demarrer par la **Phase 1: Interface Vocale** car c'est la "pierre angulaire" du projet selon le cahier des charges. Cela inclut:
-
-1. Creation du hook `useVoice` pour la reconnaissance et synthese vocale
-2. Composant `VoiceButton` flottant omnipresent
-3. Integration de la recherche vocale
-4. Refonte progressive vers une interface "Icon-First"
-
-Souhaitez-vous que je commence par cette phase ou une autre priorite ?
+| Type | Nouveaux | Modifies |
+|------|----------|----------|
+| Pages | 6 | 4 |
+| Composants | 12 | 2 |
+| Migrations SQL | 3 | 0 |
+| **Total** | **21 fichiers** | **6 fichiers** |
 
