@@ -7,16 +7,18 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Phone, UserCircle, Eye, EyeOff, Loader2, LogIn, UserPlus, Lock, User } from 'lucide-react';
+import { Mail, Phone, Eye, EyeOff, Loader2, LogIn, UserPlus, Lock, User } from 'lucide-react';
 import { z } from 'zod';
+import { VoiceAssistant } from '@/components/voice';
 
 // Validation schemas
-const emailSchema = z.string().email("Email invalide").max(255).optional().or(z.literal(''));
+const emailSchema = z.string().email("Email invalide").max(255);
 const passwordSchema = z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères").max(100);
 const phoneSchema = z.string().regex(/^\+?[1-9]\d{7,14}$/, "Numéro de téléphone invalide");
 
 type AuthMode = 'login' | 'signup';
 type UserRoleType = 'client' | 'provider';
+type SignupMethod = 'phone' | 'email';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -24,6 +26,7 @@ const Auth = () => {
   const { toast } = useToast();
 
   const [mode, setMode] = useState<AuthMode>('login');
+  const [signupMethod, setSignupMethod] = useState<SignupMethod>('phone');
   const [username, setUsername] = useState(''); // For login: email or phone
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -76,15 +79,14 @@ const Auth = () => {
         newErrors.username = "Format invalide (email ou numéro de téléphone)";
       }
     } else {
-      // For signup: phone is required
-      const phoneResult = phoneSchema.safeParse(phone);
-      if (!phoneResult.success) {
-        newErrors.phone = phoneResult.error.errors[0].message;
-      }
-
-      // Email is optional for signup
-      if (email && email.trim() !== '') {
-        const emailResult = z.string().email("Email invalide").safeParse(email);
+      // For signup: validate based on chosen method
+      if (signupMethod === 'phone') {
+        const phoneResult = phoneSchema.safeParse(phone);
+        if (!phoneResult.success) {
+          newErrors.phone = phoneResult.error.errors[0].message;
+        }
+      } else {
+        const emailResult = emailSchema.safeParse(email);
         if (!emailResult.success) {
           newErrors.email = emailResult.error.errors[0].message;
         }
@@ -115,13 +117,19 @@ const Auth = () => {
       let result;
 
       if (mode === 'signup') {
-        // For signup, always use phone (required)
-        result = await signUpWithPhone(phone, password, selectedRole);
+        // For signup, use the chosen method (phone or email)
+        if (signupMethod === 'phone') {
+          result = await signUpWithPhone(phone, password, selectedRole);
+        } else {
+          result = await signUp(email, password, selectedRole);
+        }
 
         if (!result.error) {
           toast({
             title: "Compte créé !",
-            description: "Votre compte a été créé avec succès.",
+            description: signupMethod === 'email' 
+              ? "Vérifiez votre email pour confirmer votre compte."
+              : "Votre compte a été créé avec succès.",
             className: "bg-success text-success-foreground",
           });
         }
@@ -274,8 +282,37 @@ const Auth = () => {
                 </div>
               )}
 
-              {/* Signup mode: Numéro de téléphone */}
+              {/* Signup mode: Method selection (phone or email) */}
               {mode === 'signup' && (
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">S'inscrire avec</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={signupMethod === 'phone' ? 'default' : 'outline'}
+                      onClick={() => setSignupMethod('phone')}
+                      className="h-10"
+                      disabled={isSubmitting}
+                    >
+                      <Phone className="mr-2 h-4 w-4" />
+                      Téléphone
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={signupMethod === 'email' ? 'default' : 'outline'}
+                      onClick={() => setSignupMethod('email')}
+                      className="h-10"
+                      disabled={isSubmitting}
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      Email
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Signup mode: Phone input (when phone method selected) */}
+              {mode === 'signup' && signupMethod === 'phone' && (
                 <div className="space-y-2">
                   <Label htmlFor="phone" className="flex items-center gap-2 text-muted-foreground">
                     <Phone className="h-4 w-4" />
@@ -295,12 +332,13 @@ const Auth = () => {
                   )}
                 </div>
               )}
-              {/* Signup mode: Email (optionnel) */}
-              {mode === 'signup' && (
+
+              {/* Signup mode: Email input (when email method selected) */}
+              {mode === 'signup' && signupMethod === 'email' && (
                 <div className="space-y-2">
                   <Label htmlFor="email" className="flex items-center gap-2 text-muted-foreground">
                     <Mail className="h-4 w-4" />
-                    Email (optionnel)
+                    Adresse email
                   </Label>
                   <Input
                     id="email"
@@ -455,6 +493,9 @@ const Auth = () => {
           .
         </p>
       </div>
+
+      {/* Voice Assistant */}
+      <VoiceAssistant />
     </div>
   );
 };
