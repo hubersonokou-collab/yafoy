@@ -8,12 +8,78 @@ const corsHeaders = {
 interface PaystackInitializeRequest {
   orderId: string;
   email: string;
-  amount: number; // Amount in FCFA (will be converted to kobo)
+  amount: number;
   callbackUrl?: string;
 }
 
 interface PaystackVerifyRequest {
   reference: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleWebhook(
+  req: Request, 
+  supabase: any,
+  secretKey: string
+): Promise<Response> {
+  const payload = await req.text();
+  const signature = req.headers.get('x-paystack-signature');
+
+  // Verify webhook signature using HMAC SHA512
+  if (signature) {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secretKey);
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-512' },
+      false,
+      ['sign']
+    );
+    const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+    const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    if (expectedSignature !== signature) {
+      console.error('Invalid webhook signature');
+      return new Response(
+        JSON.stringify({ error: 'Invalid signature' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
+  console.log('Webhook received with valid signature');
+
+  const event = JSON.parse(payload);
+  console.log('Webhook event:', event.event);
+
+  if (event.event === 'charge.success') {
+    const transaction = event.data;
+    const orderId = transaction.metadata?.order_id;
+
+    if (orderId) {
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          status: 'confirmed',
+          deposit_paid: transaction.amount / 100,
+        })
+        .eq('id', orderId);
+
+      if (updateError) {
+        console.error('Webhook: Error updating order:', updateError);
+      } else {
+        console.log('Webhook: Order updated successfully:', orderId);
+      }
+    }
+  }
+
+  return new Response(
+    JSON.stringify({ received: true }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 Deno.serve(async (req) => {
@@ -29,14 +95,46 @@ Deno.serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
+    
     const url = new URL(req.url);
     const action = url.pathname.split('/').pop();
 
+    // Webhook doesn't require user auth - uses signature verification instead
+    if (action === 'webhook' && req.method === 'POST') {
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      return await handleWebhook(req, supabase, PAYSTACK_SECRET_KEY);
+    }
+
+    // All other endpoints require authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Verify JWT token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = claimsData.claims.sub as string;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     if (action === 'initialize' && req.method === 'POST') {
-      // Initialize payment
       const { orderId, email, amount, callbackUrl }: PaystackInitializeRequest = await req.json();
 
       if (!orderId || !email || !amount) {
@@ -46,10 +144,29 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Convert amount to kobo (Paystack uses lowest currency unit)
-      // For FCFA, we use the amount directly as Paystack handles XOF
-      const amountInKobo = Math.round(amount * 100);
+      // Verify the user owns this order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select('client_id')
+        .eq('id', orderId)
+        .single();
 
+      if (orderError || !order) {
+        return new Response(
+          JSON.stringify({ error: 'Order not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (order.client_id !== userId) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized - not your order' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Convert amount to kobo (Paystack uses lowest currency unit)
+      const amountInKobo = Math.round(amount * 100);
       const reference = `order_${orderId}_${Date.now()}`;
 
       const response = await fetch('https://api.paystack.co/transaction/initialize', {
@@ -62,7 +179,7 @@ Deno.serve(async (req) => {
           email,
           amount: amountInKobo,
           reference,
-          currency: 'XOF', // West African CFA franc
+          currency: 'XOF',
           callback_url: callbackUrl,
           metadata: {
             order_id: orderId,
@@ -77,7 +194,7 @@ Deno.serve(async (req) => {
         throw new Error(data.message || 'Failed to initialize payment');
       }
 
-      console.log('Payment initialized:', { reference, orderId });
+      console.log('Payment initialized:', { reference, orderId, userId });
 
       return new Response(
         JSON.stringify({
@@ -91,7 +208,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'verify' && req.method === 'POST') {
-      // Verify payment
       const { reference }: PaystackVerifyRequest = await req.json();
 
       if (!reference) {
@@ -101,7 +217,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+      const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
@@ -116,26 +232,39 @@ Deno.serve(async (req) => {
       }
 
       const transaction = data.data;
-      console.log('Payment verification:', { reference, status: transaction.status });
+      const orderId = transaction.metadata?.order_id;
 
-      if (transaction.status === 'success') {
-        // Update order status in database
-        const orderId = transaction.metadata?.order_id;
-        
-        if (orderId) {
-          const { error: updateError } = await supabase
-            .from('orders')
-            .update({
-              status: 'confirmed',
-              deposit_paid: transaction.amount / 100, // Convert back from kobo
-            })
-            .eq('id', orderId);
+      // Verify user has access to this order
+      if (orderId) {
+        const { data: order } = await supabase
+          .from('orders')
+          .select('client_id')
+          .eq('id', orderId)
+          .single();
 
-          if (updateError) {
-            console.error('Error updating order:', updateError);
-          } else {
-            console.log('Order updated successfully:', orderId);
-          }
+        if (order && order.client_id !== userId) {
+          return new Response(
+            JSON.stringify({ error: 'Unauthorized - not your order' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+
+      console.log('Payment verification:', { reference, status: transaction.status, userId });
+
+      if (transaction.status === 'success' && orderId) {
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({
+            status: 'confirmed',
+            deposit_paid: transaction.amount / 100,
+          })
+          .eq('id', orderId);
+
+        if (updateError) {
+          console.error('Error updating order:', updateError);
+        } else {
+          console.log('Order updated successfully:', orderId);
         }
       }
 
@@ -148,44 +277,6 @@ Deno.serve(async (req) => {
           reference: transaction.reference,
           paid_at: transaction.paid_at,
         }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (action === 'webhook' && req.method === 'POST') {
-      // Handle Paystack webhook
-      const payload = await req.text();
-      const signature = req.headers.get('x-paystack-signature');
-
-      // Verify webhook signature (optional but recommended)
-      console.log('Webhook received:', { signature: signature?.substring(0, 20) });
-
-      const event = JSON.parse(payload);
-      console.log('Webhook event:', event.event);
-
-      if (event.event === 'charge.success') {
-        const transaction = event.data;
-        const orderId = transaction.metadata?.order_id;
-
-        if (orderId) {
-          const { error: updateError } = await supabase
-            .from('orders')
-            .update({
-              status: 'confirmed',
-              deposit_paid: transaction.amount / 100,
-            })
-            .eq('id', orderId);
-
-          if (updateError) {
-            console.error('Webhook: Error updating order:', updateError);
-          } else {
-            console.log('Webhook: Order updated successfully:', orderId);
-          }
-        }
-      }
-
-      return new Response(
-        JSON.stringify({ received: true }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
