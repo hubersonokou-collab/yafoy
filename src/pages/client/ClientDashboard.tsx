@@ -3,11 +3,29 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { SimplifiedAIChat } from '@/components/event-planner/SimplifiedAIChat';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Package, Search, ShoppingCart, MapPin, Star } from 'lucide-react';
+import { 
+  Loader2, 
+  Package, 
+  Search, 
+  ShoppingCart, 
+  MapPin, 
+  Star, 
+  Sparkles,
+  Calendar,
+  ArrowRight,
+  Heart,
+  Cake,
+  Baby,
+  Church,
+  Building2,
+  PartyPopper,
+  MessageSquare
+} from 'lucide-react';
 
 // Import category images
 import decorationImg from '@/assets/categories/decoration.jpg';
@@ -31,6 +49,16 @@ const categoryImages: Record<string, string> = {
   'Traiteur': traiteurImg,
 };
 
+// Event type icons for quick planning
+const EVENT_TYPES = [
+  { id: 'mariage', label: 'Mariage', icon: Heart, color: 'bg-pink-100 text-pink-600' },
+  { id: 'anniversaire', label: 'Anniversaire', icon: Cake, color: 'bg-orange-100 text-orange-600' },
+  { id: 'bapteme', label: 'Baptême', icon: Baby, color: 'bg-blue-100 text-blue-600' },
+  { id: 'communion', label: 'Communion', icon: Church, color: 'bg-purple-100 text-purple-600' },
+  { id: 'fete_entreprise', label: 'Entreprise', icon: Building2, color: 'bg-slate-100 text-slate-600' },
+  { id: 'fiancailles', label: 'Fiançailles', icon: PartyPopper, color: 'bg-rose-100 text-rose-600' },
+];
+
 // Helper function to get full image URL
 const getImageUrl = (imagePath: string | null): string | null => {
   if (!imagePath) return null;
@@ -48,6 +76,7 @@ const ClientDashboard = () => {
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -125,8 +154,8 @@ const ClientDashboard = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Welcome Section */}
-        <div className="rounded-lg bg-gradient-to-r from-primary to-primary/80 p-6 text-primary-foreground">
+        {/* Welcome Section with Search */}
+        <div className="rounded-2xl bg-gradient-to-r from-primary to-primary/80 p-6 text-primary-foreground">
           <h1 className="text-2xl font-bold">Bienvenue sur YAFOY</h1>
           <p className="mt-1 opacity-90">Trouvez tout pour votre cérémonie</p>
           
@@ -138,11 +167,94 @@ const ClientDashboard = () => {
                 placeholder="Rechercher un équipement..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 pl-10 bg-white text-foreground"
+                className="h-12 pl-10 bg-white text-foreground rounded-full"
               />
             </div>
           </form>
         </div>
+
+        {/* Quick Planning Section - NEW! */}
+        <Card className="overflow-hidden border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-background">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="p-2 bg-primary/10 rounded-full">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                </div>
+                Planifier un événement
+              </CardTitle>
+              <Button 
+                variant="default" 
+                className="rounded-full"
+                onClick={() => navigate('/client/event-planner')}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Planifier
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              Quel type d'événement préparez-vous ? Cliquez pour démarrer
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+              {EVENT_TYPES.map((event) => {
+                const Icon = event.icon;
+                return (
+                  <button
+                    key={event.id}
+                    onClick={() => navigate(`/client/event-planner?event=${event.id}`)}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-primary/5 transition-all group"
+                  >
+                    <div className={`p-3 rounded-full ${event.color} group-hover:scale-110 transition-transform`}>
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <span className="text-xs font-medium text-center">{event.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* AI Assistant Quick Access */}
+        <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-primary rounded-full">
+                  <MessageSquare className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Besoin d'aide ?</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Notre assistant IA vous guide dans vos choix
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                className="rounded-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                onClick={() => setShowChat(!showChat)}
+              >
+                {showChat ? 'Fermer' : 'Discuter'}
+              </Button>
+            </div>
+            
+            {/* Inline Chat */}
+            {showChat && (
+              <div className="mt-4 h-[400px]">
+                <SimplifiedAIChat 
+                  standalone={false}
+                  onReserve={(productIds) => {
+                    navigate('/client/event-planner');
+                  }}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Categories */}
         <div>
@@ -154,7 +266,7 @@ const ClientDashboard = () => {
                 <Link
                   key={category.id}
                   to={`/client/catalog?category=${category.id}`}
-                  className="group flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all hover:border-primary hover:shadow-md overflow-hidden"
+                  className="group flex flex-col items-center gap-2 rounded-xl border p-3 text-center transition-all hover:border-primary hover:shadow-md overflow-hidden"
                 >
                   <div className="h-16 w-16 rounded-full overflow-hidden bg-muted">
                     {categoryImage ? (
@@ -181,7 +293,10 @@ const ClientDashboard = () => {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-secondary">Produits populaires</h2>
             <Link to="/client/catalog">
-              <Button variant="outline" size="sm">Voir tout</Button>
+              <Button variant="outline" size="sm" className="rounded-full">
+                Voir tout
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
             </Link>
           </div>
           
@@ -197,7 +312,7 @@ const ClientDashboard = () => {
               {featuredProducts.map((product) => {
                 const mainImage = product.images && product.images.length > 0 ? getImageUrl(product.images[0]) : null;
                 return (
-                <Card key={product.id} className="overflow-hidden">
+                <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                   <div className="aspect-video bg-muted flex items-center justify-center">
                     {mainImage ? (
                       <img
@@ -234,6 +349,7 @@ const ClientDashboard = () => {
                       </p>
                       <Button 
                         size="sm"
+                        className="rounded-full"
                         onClick={() => navigate(`/client/product/${product.id}`)}
                       >
                         Réserver
@@ -253,7 +369,10 @@ const ClientDashboard = () => {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Mes dernières commandes</CardTitle>
               <Link to="/client/orders">
-                <Button variant="outline" size="sm">Voir tout</Button>
+                <Button variant="outline" size="sm" className="rounded-full">
+                  Voir tout
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
               </Link>
             </CardHeader>
             <CardContent>
@@ -261,7 +380,8 @@ const ClientDashboard = () => {
                 {recentOrders.map((order) => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-between rounded-lg border p-4"
+                    className="flex items-center justify-between rounded-xl border p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => navigate('/client/orders')}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
