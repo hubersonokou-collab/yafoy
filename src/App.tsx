@@ -33,6 +33,7 @@ import ClientOrders from "./pages/client/ClientOrders";
 import ProductDetail from "./pages/client/ProductDetail";
 import ClientFavorites from "./pages/client/ClientFavorites";
 import ClientSettings from "./pages/client/ClientSettings";
+import ClientEventPlanner from "./pages/client/ClientEventPlanner";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,7 @@ const App = () => (
             
             {/* Client Routes */}
             <Route path="/client" element={<ClientDashboard />} />
+            <Route path="/client/event-planner" element={<ClientEventPlanner />} />
             <Route path="/client/catalog" element={<ClientCatalog />} />
             <Route path="/client/orders" element={<ClientOrders />} />
             <Route path="/client/product/:id" element={<ProductDetail />} />

@@ -41,6 +41,219 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          content: string | null
+          created_at: string
+          file_name: string | null
+          file_size: number | null
+          file_url: string | null
+          id: string
+          is_read: boolean
+          message_type: string
+          room_id: string
+          sender_id: string
+          voice_duration: number | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          is_read?: boolean
+          message_type?: string
+          room_id: string
+          sender_id: string
+          voice_duration?: number | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          is_read?: boolean
+          message_type?: string
+          room_id?: string
+          sender_id?: string
+          voice_duration?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_room_participants: {
+        Row: {
+          id: string
+          joined_at: string
+          role: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          role?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          role?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_room_participants_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_rooms: {
+        Row: {
+          created_at: string
+          created_by: string
+          event_planning_id: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          event_planning_id: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          event_planning_id?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_rooms_event_planning_id_fkey"
+            columns: ["event_planning_id"]
+            isOneToOne: false
+            referencedRelation: "event_planning_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_planning_requests: {
+        Row: {
+          additional_notes: string | null
+          ai_recommendations: Json | null
+          budget_max: number
+          budget_min: number
+          created_at: string
+          event_date: string | null
+          event_location: string | null
+          event_name: string | null
+          event_type: Database["public"]["Enums"]["event_type"]
+          guest_count: number
+          id: string
+          services_needed: string[] | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          additional_notes?: string | null
+          ai_recommendations?: Json | null
+          budget_max: number
+          budget_min?: number
+          created_at?: string
+          event_date?: string | null
+          event_location?: string | null
+          event_name?: string | null
+          event_type: Database["public"]["Enums"]["event_type"]
+          guest_count: number
+          id?: string
+          services_needed?: string[] | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          additional_notes?: string | null
+          ai_recommendations?: Json | null
+          budget_max?: number
+          budget_min?: number
+          created_at?: string
+          event_date?: string | null
+          event_location?: string | null
+          event_name?: string | null
+          event_type?: Database["public"]["Enums"]["event_type"]
+          guest_count?: number
+          id?: string
+          services_needed?: string[] | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      event_selected_providers: {
+        Row: {
+          created_at: string
+          event_planning_id: string
+          id: string
+          product_id: string | null
+          provider_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          event_planning_id: string
+          id?: string
+          product_id?: string | null
+          provider_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          event_planning_id?: string
+          id?: string
+          product_id?: string | null
+          provider_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_selected_providers_event_planning_id_fkey"
+            columns: ["event_planning_id"]
+            isOneToOne: false
+            referencedRelation: "event_planning_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_selected_providers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       favorites: {
         Row: {
           created_at: string | null
@@ -601,6 +814,14 @@ export type Database = {
       is_team_member: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
+      event_type:
+        | "mariage"
+        | "bapteme"
+        | "anniversaire"
+        | "fete_entreprise"
+        | "communion"
+        | "fiancailles"
+        | "autre"
       order_status:
         | "pending"
         | "confirmed"
@@ -743,6 +964,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      event_type: [
+        "mariage",
+        "bapteme",
+        "anniversaire",
+        "fete_entreprise",
+        "communion",
+        "fiancailles",
+        "autre",
+      ],
       order_status: [
         "pending",
         "confirmed",

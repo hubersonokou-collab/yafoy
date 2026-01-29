@@ -18,6 +18,7 @@ import {
   Store,
   Heart,
   Bell,
+  Sparkles,
 } from 'lucide-react';
 import logoYafoy from '@/assets/logo-yafoy.png';
 
@@ -50,6 +51,7 @@ const providerNav: NavItem[] = [
 
 const clientNav: NavItem[] = [
   { title: 'Accueil', href: '/client', icon: LayoutDashboard },
+  { title: 'Planifier', href: '/client/event-planner', icon: Sparkles },
   { title: 'Catalogue', href: '/client/catalog', icon: Package },
   { title: 'Mes commandes', href: '/client/orders', icon: ShoppingCart },
   { title: 'Favoris', href: '/client/favorites', icon: Heart },
