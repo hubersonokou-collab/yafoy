@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { EventPlannerForm, EventPlannerChat } from '@/components/event-planner';
+import { EventPlannerChat } from '@/components/event-planner';
+import { AccessibleEventPlanner } from '@/components/event-planner/AccessibleEventPlanner';
 import { ChatRoomView } from '@/components/chat';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Loader2, 
@@ -17,7 +17,14 @@ import {
   Check, 
   Users,
   Calendar,
-  Wallet
+  Wallet,
+  Sparkles,
+  Heart,
+  Cake,
+  Baby,
+  Church,
+  Building2,
+  PartyPopper
 } from 'lucide-react';
 
 interface EventFormData {
@@ -31,6 +38,16 @@ interface EventFormData {
   servicesNeeded: string[];
   additionalNotes: string;
 }
+
+const EVENT_TYPE_ICONS: Record<string, React.ElementType> = {
+  mariage: Heart,
+  bapteme: Baby,
+  anniversaire: Cake,
+  fete_entreprise: Building2,
+  communion: Church,
+  fiancailles: PartyPopper,
+  autre: Sparkles,
+};
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   mariage: 'Mariage',
@@ -209,6 +226,8 @@ const ClientEventPlanner = () => {
     );
   }
 
+  const EventIcon = eventData ? EVENT_TYPE_ICONS[eventData.eventType] || Sparkles : Sparkles;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -218,30 +237,50 @@ const ClientEventPlanner = () => {
             <Button
               variant="ghost"
               size="icon"
+              className="h-12 w-12 rounded-full"
               onClick={() => setStep(step === 'room' ? 'chat' : 'form')}
+              aria-label="Retour"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-6 w-6" />
             </Button>
           )}
-          <div>
-            <h1 className="text-2xl font-bold text-secondary">
-              {step === 'form' && 'Planifier un événement'}
-              {step === 'chat' && 'Assistant IA'}
-              {step === 'room' && 'Groupe de discussion'}
+          <div className="flex-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-secondary flex items-center gap-3">
+              {step === 'form' && (
+                <>
+                  <Sparkles className="h-8 w-8 text-primary" />
+                  Planifier un événement
+                </>
+              )}
+              {step === 'chat' && (
+                <>
+                  <MessageSquare className="h-8 w-8 text-primary" />
+                  Assistant IA
+                </>
+              )}
+              {step === 'room' && (
+                <>
+                  <Users className="h-8 w-8 text-primary" />
+                  Groupe de discussion
+                </>
+              )}
             </h1>
             {eventData && step !== 'form' && (
-              <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                <Badge variant="secondary">{EVENT_TYPE_LABELS[eventData.eventType]}</Badge>
-                <span className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-3 mt-2">
+                <Badge variant="secondary" className="flex items-center gap-1 text-sm py-1 px-3">
+                  <EventIcon className="h-4 w-4" />
+                  {EVENT_TYPE_LABELS[eventData.eventType]}
+                </Badge>
+                <span className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />
                   {eventData.guestCount} invités
                 </span>
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Wallet className="h-4 w-4" />
                   {eventData.budgetMax.toLocaleString()} FCFA
                 </span>
                 {eventData.eventDate && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
                     {new Date(eventData.eventDate).toLocaleDateString('fr-FR')}
                   </span>
@@ -253,7 +292,7 @@ const ClientEventPlanner = () => {
 
         {/* Step Content */}
         {step === 'form' && (
-          <EventPlannerForm onSubmit={handleFormSubmit} />
+          <AccessibleEventPlanner onSubmit={handleFormSubmit} />
         )}
 
         {step === 'chat' && eventData && (
@@ -273,20 +312,27 @@ const ClientEventPlanner = () => {
             />
 
             {selectedProductIds.length > 0 && (
-              <Card>
+              <Card className="border-2 border-primary/30 bg-primary/5">
                 <CardContent className="py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Check className="h-5 w-5 text-green-600" />
-                      <span className="font-medium">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                        <Check className="h-6 w-6 text-green-600" />
+                      </div>
+                      <span className="font-semibold text-lg">
                         {selectedProductIds.length} prestataire(s) sélectionné(s)
                       </span>
                     </div>
-                    <Button onClick={handleCreateChatRoom} disabled={isCreatingRoom}>
+                    <Button 
+                      size="lg" 
+                      className="w-full sm:w-auto h-12 text-base"
+                      onClick={handleCreateChatRoom} 
+                      disabled={isCreatingRoom}
+                    >
                       {isCreatingRoom ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
                       ) : (
-                        <MessageSquare className="h-4 w-4 mr-2" />
+                        <MessageSquare className="h-5 w-5 mr-2" />
                       )}
                       Créer le groupe de discussion
                     </Button>
@@ -298,7 +344,7 @@ const ClientEventPlanner = () => {
         )}
 
         {step === 'room' && chatRoomId && (
-          <div className="h-[600px]">
+          <div className="h-[600px] rounded-xl overflow-hidden border">
             <ChatRoomView roomId={chatRoomId} participants={participants} />
           </div>
         )}

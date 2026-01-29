@@ -34,7 +34,6 @@ interface DashboardLayoutProps {
 
 const superAdminNav: NavItem[] = [
   { title: 'Tableau de bord', href: '/admin', icon: LayoutDashboard },
-  { title: 'Équipe', href: '/admin/team', icon: Users },
   { title: 'Utilisateurs', href: '/admin/users', icon: Users },
   { title: 'Prestataires', href: '/admin/providers', icon: Store },
   { title: 'Produits', href: '/admin/products', icon: Package },
