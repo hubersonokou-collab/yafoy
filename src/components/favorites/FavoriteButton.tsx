@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef } from 'react';
 import { Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,12 +12,12 @@ interface FavoriteButtonProps {
   onToggle?: (isFavorite: boolean) => void;
 }
 
-export const FavoriteButton = ({
+export const FavoriteButton = forwardRef<HTMLButtonElement, FavoriteButtonProps>(({
   productId,
   size = 'md',
   className,
   onToggle,
-}: FavoriteButtonProps) => {
+}, ref) => {
   const { toast } = useToast();
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -117,6 +117,7 @@ export const FavoriteButton = ({
 
   return (
     <Button
+      ref={ref}
       variant="ghost"
       size="icon"
       onClick={toggleFavorite}
@@ -136,4 +137,6 @@ export const FavoriteButton = ({
       />
     </Button>
   );
-};
+});
+
+FavoriteButton.displayName = 'FavoriteButton';

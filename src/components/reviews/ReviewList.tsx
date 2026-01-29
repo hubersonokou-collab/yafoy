@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, forwardRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ReviewCard } from './ReviewCard';
 import { StarRating } from './StarRating';
@@ -9,7 +9,7 @@ interface ReviewListProps {
   limit?: number;
 }
 
-export const ReviewList = ({ providerId, limit }: ReviewListProps) => {
+export const ReviewList = forwardRef<HTMLDivElement, ReviewListProps>(({ providerId, limit }, ref) => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -73,7 +73,7 @@ export const ReviewList = ({ providerId, limit }: ReviewListProps) => {
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={ref} className="space-y-4">
       {/* Stats summary */}
       <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
         <div className="text-center">
@@ -93,4 +93,6 @@ export const ReviewList = ({ providerId, limit }: ReviewListProps) => {
       </div>
     </div>
   );
-};
+});
+
+ReviewList.displayName = 'ReviewList';
