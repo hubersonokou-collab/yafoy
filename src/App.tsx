@@ -17,6 +17,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminProducts from "./pages/admin/AdminProducts";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminTeam from "./pages/admin/AdminTeam";
+import AdminTransactions from "./pages/admin/AdminTransactions";
 
 // Provider pages
 import ProviderDashboard from "./pages/provider/ProviderDashboard";
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/admin/providers" element={<AdminUsers />} />
             <Route path="/admin/products" element={<AdminProducts />} />
             <Route path="/admin/orders" element={<AdminOrders />} />
+            <Route path="/admin/transactions" element={<AdminTransactions />} />
             
             {/* Provider Routes */}
             <Route path="/provider" element={<ProviderDashboard />} />

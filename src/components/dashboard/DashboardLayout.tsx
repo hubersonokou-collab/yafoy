@@ -19,6 +19,7 @@ import {
   Heart,
   Bell,
   Sparkles,
+  Receipt,
 } from 'lucide-react';
 import logoYafoy from '@/assets/logo-yafoy.png';
 
@@ -38,6 +39,7 @@ const superAdminNav: NavItem[] = [
   { title: 'Prestataires', href: '/admin/providers', icon: Store },
   { title: 'Produits', href: '/admin/products', icon: Package },
   { title: 'Commandes', href: '/admin/orders', icon: ShoppingCart },
+  { title: 'Transactions', href: '/admin/transactions', icon: Receipt },
   { title: 'Paramètres', href: '/admin/settings', icon: Settings },
 ];
 
