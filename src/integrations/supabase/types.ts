@@ -285,56 +285,6 @@ export type Database = {
         }
         Relationships: []
       }
-      reports: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          reported_product_id: string | null
-          reported_user_id: string | null
-          reporter_id: string
-          resolution_notes: string | null
-          resolved_at: string | null
-          resolved_by: string | null
-          status: string
-          type: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          reported_product_id?: string | null
-          reported_user_id?: string | null
-          reporter_id: string
-          resolution_notes?: string | null
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: string
-          type: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          reported_product_id?: string | null
-          reported_user_id?: string | null
-          reporter_id?: string
-          resolution_notes?: string | null
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: string
-          type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "reports_reported_product_id_fkey"
-            columns: ["reported_product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       reviews: {
         Row: {
           client_id: string
@@ -388,133 +338,6 @@ export type Database = {
           },
         ]
       }
-      support_messages: {
-        Row: {
-          created_at: string
-          id: string
-          is_internal: boolean
-          message: string
-          sender_id: string
-          ticket_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_internal?: boolean
-          message: string
-          sender_id: string
-          ticket_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_internal?: boolean
-          message?: string
-          sender_id?: string
-          ticket_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "support_messages_ticket_id_fkey"
-            columns: ["ticket_id"]
-            isOneToOne: false
-            referencedRelation: "support_tickets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      support_tickets: {
-        Row: {
-          assigned_to: string | null
-          category: string | null
-          created_at: string
-          description: string | null
-          id: string
-          priority: string
-          status: string
-          subject: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          assigned_to?: string | null
-          category?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          priority?: string
-          status?: string
-          subject: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          assigned_to?: string | null
-          category?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          priority?: string
-          status?: string
-          subject?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      transactions: {
-        Row: {
-          amount: number
-          created_at: string
-          description: string | null
-          id: string
-          order_id: string | null
-          payment_method: string | null
-          processed_at: string | null
-          processed_by: string | null
-          provider_id: string | null
-          reference: string | null
-          status: string
-          type: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          description?: string | null
-          id?: string
-          order_id?: string | null
-          payment_method?: string | null
-          processed_at?: string | null
-          processed_by?: string | null
-          provider_id?: string | null
-          reference?: string | null
-          status?: string
-          type: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          description?: string | null
-          id?: string
-          order_id?: string | null
-          payment_method?: string | null
-          processed_at?: string | null
-          processed_by?: string | null
-          provider_id?: string | null
-          reference?: string | null
-          status?: string
-          type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "transactions_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_roles: {
         Row: {
           created_at: string
@@ -536,48 +359,6 @@ export type Database = {
         }
         Relationships: []
       }
-      withdrawals: {
-        Row: {
-          account_details: Json
-          amount: number
-          id: string
-          notes: string | null
-          payment_method: string
-          processed_at: string | null
-          processed_by: string | null
-          provider_id: string
-          rejection_reason: string | null
-          requested_at: string
-          status: string
-        }
-        Insert: {
-          account_details?: Json
-          amount: number
-          id?: string
-          notes?: string | null
-          payment_method: string
-          processed_at?: string | null
-          processed_by?: string | null
-          provider_id: string
-          rejection_reason?: string | null
-          requested_at?: string
-          status?: string
-        }
-        Update: {
-          account_details?: Json
-          amount?: number
-          id?: string
-          notes?: string | null
-          payment_method?: string
-          processed_at?: string | null
-          processed_by?: string | null
-          provider_id?: string
-          rejection_reason?: string | null
-          requested_at?: string
-          status?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
@@ -590,15 +371,10 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_accountant: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_client: { Args: { _user_id: string }; Returns: boolean }
-      is_moderator: { Args: { _user_id: string }; Returns: boolean }
       is_provider: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
-      is_supervisor: { Args: { _user_id: string }; Returns: boolean }
-      is_support: { Args: { _user_id: string }; Returns: boolean }
-      is_team_member: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       order_status:
