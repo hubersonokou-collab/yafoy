@@ -6,9 +6,11 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EventPlannerChat } from '@/components/event-planner';
 import { AccessibleEventPlanner } from '@/components/event-planner/AccessibleEventPlanner';
 import { ChatRoomView } from '@/components/chat';
+import { ProductCard } from '@/components/products/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Loader2, 
@@ -24,7 +26,9 @@ import {
   Baby,
   Church,
   Building2,
-  PartyPopper
+  PartyPopper,
+  Package,
+  ShoppingCart
 } from 'lucide-react';
 
 interface EventFormData {
@@ -37,6 +41,18 @@ interface EventFormData {
   eventLocation: string;
   servicesNeeded: string[];
   additionalNotes: string;
+}
+
+interface RecommendedProduct {
+  id: string;
+  name: string;
+  price_per_day: number;
+  location: string | null;
+  images: string[] | null;
+  is_verified: boolean;
+  category_name?: string;
+  category_id: string | null;
+  provider_id: string;
 }
 
 const EVENT_TYPE_ICONS: Record<string, React.ElementType> = {
@@ -59,24 +75,88 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   autre: 'Autre',
 };
 
+const SERVICE_CATEGORY_MAP: Record<string, string[]> = {
+  decoration: ['décoration', 'decoration'],
+  mobilier: ['mobilier', 'meubles', 'tables', 'chaises'],
+  sonorisation: ['sonorisation', 'son', 'audio', 'musique'],
+  eclairage: ['éclairage', 'eclairage', 'lumière', 'lumiere'],
+  vaisselle: ['vaisselle', 'couverts', 'assiettes'],
+  transport: ['transport', 'véhicule', 'vehicule'],
+  photographie: ['photographie', 'photo', 'vidéo', 'video'],
+  traiteur: ['traiteur', 'repas', 'restauration', 'cuisine'],
+};
+
 const ClientEventPlanner = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [step, setStep] = useState<'form' | 'chat' | 'room'>('form');
+  const [step, setStep] = useState<'form' | 'recommendations' | 'chat' | 'room'>('form');
   const [eventData, setEventData] = useState<EventFormData | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [eventPlanningId, setEventPlanningId] = useState<string | null>(null);
   const [chatRoomId, setChatRoomId] = useState<string | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [participants, setParticipants] = useState<any[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
+
+  const fetchRecommendations = async (data: EventFormData) => {
+    setLoadingRecommendations(true);
+    try {
+      // Fetch products matching services needed and budget
+      const { data: products, error } = await supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          price_per_day,
+          location,
+          images,
+          is_verified,
+          category_id,
+          provider_id,
+          categories:category_id(name)
+        `)
+        .eq('is_active', true)
+        .lte('price_per_day', data.budgetMax)
+        .order('is_verified', { ascending: false })
+        .order('price_per_day', { ascending: true });
+
+      if (error) throw error;
+
+      // Filter products by matching services
+      const matchedProducts = (products || []).filter(product => {
+        const categoryName = (product.categories as any)?.name?.toLowerCase() || '';
+        return data.servicesNeeded.some(service => {
+          const keywords = SERVICE_CATEGORY_MAP[service] || [service];
+          return keywords.some(keyword => categoryName.includes(keyword.toLowerCase()));
+        });
+      }).map(p => ({
+        id: p.id,
+        name: p.name,
+        price_per_day: p.price_per_day,
+        location: p.location,
+        images: p.images,
+        is_verified: p.is_verified,
+        category_name: (p.categories as any)?.name,
+        category_id: p.category_id,
+        provider_id: p.provider_id,
+      }));
+
+      setRecommendedProducts(matchedProducts);
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
 
   const handleFormSubmit = async (data: EventFormData) => {
     if (!user) return;
@@ -105,7 +185,10 @@ const ClientEventPlanner = () => {
 
       setEventPlanningId(eventPlanning.id);
       setEventData(data);
-      setStep('chat');
+      
+      // Fetch recommendations directly after form submission
+      await fetchRecommendations(data);
+      setStep('recommendations');
     } catch (error) {
       console.error('Error saving event:', error);
       toast({
@@ -114,6 +197,14 @@ const ClientEventPlanner = () => {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleProductSelect = (productId: string) => {
+    setSelectedProductIds(prev => 
+      prev.includes(productId) 
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
   };
 
   const handleCreateChatRoom = async () => {
@@ -238,7 +329,11 @@ const ClientEventPlanner = () => {
               variant="ghost"
               size="icon"
               className="h-12 w-12 rounded-full"
-              onClick={() => setStep(step === 'room' ? 'chat' : 'form')}
+              onClick={() => {
+                if (step === 'room') setStep('recommendations');
+                else if (step === 'chat') setStep('recommendations');
+                else if (step === 'recommendations') setStep('form');
+              }}
               aria-label="Retour"
             >
               <ArrowLeft className="h-6 w-6" />
@@ -250,6 +345,12 @@ const ClientEventPlanner = () => {
                 <>
                   <Sparkles className="h-8 w-8 text-primary" />
                   Planifier un événement
+                </>
+              )}
+              {step === 'recommendations' && (
+                <>
+                  <ShoppingCart className="h-8 w-8 text-primary" />
+                  Recommandations
                 </>
               )}
               {step === 'chat' && (
@@ -293,6 +394,125 @@ const ClientEventPlanner = () => {
         {/* Step Content */}
         {step === 'form' && (
           <AccessibleEventPlanner onSubmit={handleFormSubmit} />
+        )}
+
+        {step === 'recommendations' && eventData && (
+          <div className="space-y-6">
+            {/* Recommendations Header */}
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-8 w-8 text-primary" />
+                  <div>
+                    <h2 className="text-lg font-semibold">Recommandations pour votre {EVENT_TYPE_LABELS[eventData.eventType]}</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {recommendedProducts.length} produit(s) trouvé(s) dans votre budget • Sélectionnez ceux qui vous intéressent
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {loadingRecommendations ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                <p className="text-lg font-medium text-muted-foreground">Recherche des meilleurs prestataires...</p>
+              </div>
+            ) : recommendedProducts.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <Package className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                  <p className="text-lg font-medium text-muted-foreground mb-2">Aucun produit trouvé</p>
+                  <p className="text-sm text-muted-foreground/70 text-center max-w-sm mb-4">
+                    Essayez d'augmenter votre budget ou de modifier les services recherchés
+                  </p>
+                  <Button variant="outline" onClick={() => setStep('form')}>
+                    Modifier les critères
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Group by category */}
+                {Object.entries(
+                  recommendedProducts.reduce((acc, product) => {
+                    const category = product.category_name || 'Autres';
+                    if (!acc[category]) acc[category] = [];
+                    acc[category].push(product);
+                    return acc;
+                  }, {} as Record<string, RecommendedProduct[]>)
+                ).map(([category, products]) => (
+                  <section key={category} className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-xl font-semibold text-secondary">{category}</h3>
+                      <Badge variant="secondary">{products.length} option(s)</Badge>
+                    </div>
+                    <ScrollArea className="w-full">
+                      <div className="flex gap-4 pb-4">
+                        {products.map((product) => (
+                          <div key={product.id} className="min-w-[280px] max-w-[300px]">
+                            <div 
+                              className={`relative rounded-xl border-2 transition-all cursor-pointer ${
+                                selectedProductIds.includes(product.id) 
+                                  ? 'border-primary ring-2 ring-primary/30 shadow-lg' 
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                              onClick={() => handleProductSelect(product.id)}
+                            >
+                              {selectedProductIds.includes(product.id) && (
+                                <div className="absolute top-3 right-3 z-10 bg-primary text-primary-foreground rounded-full p-1">
+                                  <Check className="h-4 w-4" />
+                                </div>
+                              )}
+                              <ProductCard
+                                product={{
+                                  ...product,
+                                  category: product.category_name ? { name: product.category_name } : undefined,
+                                }}
+                                showFavoriteButton
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
+                  </section>
+                ))}
+              </>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="flex-1 h-14"
+                onClick={() => setStep('chat')}
+              >
+                <MessageSquare className="mr-2 h-5 w-5" />
+                Discuter avec l'assistant IA
+              </Button>
+              
+              {selectedProductIds.length > 0 && (
+                <Button 
+                  size="lg" 
+                  className="flex-1 h-14"
+                  onClick={handleCreateChatRoom} 
+                  disabled={isCreatingRoom}
+                >
+                  {isCreatingRoom ? (
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-5 w-5" />
+                      Contacter {selectedProductIds.length} prestataire(s)
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
         )}
 
         {step === 'chat' && eventData && (

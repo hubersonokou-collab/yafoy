@@ -342,6 +342,28 @@ export const AccessibleEventPlanner = ({ onSubmit, initialData }: AccessibleEven
                 <Users className="h-12 w-12 mx-auto text-primary mb-4" />
                 <h2 className="text-2xl font-bold text-secondary">Combien d'invités?</h2>
               </div>
+              
+              {/* Manual Input Field */}
+              <div className="flex flex-col items-center gap-4">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Entrez le nombre exact ou choisissez ci-dessous
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  value={formData.guestCount || ''}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 0;
+                    setFormData(prev => ({ ...prev, guestCount: value }));
+                  }}
+                  placeholder="Nombre d'invités"
+                  className="w-48 h-16 text-3xl font-bold text-center border-2 border-primary/30 rounded-xl bg-background focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20"
+                  aria-label="Nombre d'invités"
+                />
+              </div>
+              
+              {/* Preset buttons */}
               <div className="grid grid-cols-2 gap-4">
                 {GUEST_PRESETS.map((preset) => {
                   const isSelected = formData.guestCount === preset.value;
@@ -355,15 +377,15 @@ export const AccessibleEventPlanner = ({ onSubmit, initialData }: AccessibleEven
                         }
                       }}
                       className={cn(
-                        'flex flex-col items-center gap-3 p-8 rounded-2xl border-3 transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/50',
+                        'flex flex-col items-center gap-3 p-6 rounded-2xl border-3 transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/50',
                         isSelected 
                           ? 'border-primary bg-primary/10 shadow-xl' 
                           : 'border-border hover:border-primary/50 bg-card'
                       )}
                       aria-pressed={isSelected}
                     >
-                      <span className="text-4xl">{preset.icon}</span>
-                      <span className={cn('text-2xl font-bold', isSelected && 'text-primary')}>
+                      <span className="text-3xl">{preset.icon}</span>
+                      <span className={cn('text-xl font-bold', isSelected && 'text-primary')}>
                         {preset.label}
                       </span>
                       {isSelected && <Check className="h-6 w-6 text-green-500" />}
@@ -372,27 +394,25 @@ export const AccessibleEventPlanner = ({ onSubmit, initialData }: AccessibleEven
                 })}
               </div>
               
-              {/* Custom slider */}
-              <div className="space-y-4 pt-4">
-                <div className="flex items-center justify-between">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-12 w-12 rounded-full"
-                    onClick={() => setFormData(prev => ({ ...prev, guestCount: Math.max(10, prev.guestCount - 10) }))}
-                  >
-                    <ChevronDown className="h-6 w-6" />
-                  </Button>
-                  <span className="text-4xl font-bold text-primary">{formData.guestCount}</span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-12 w-12 rounded-full"
-                    onClick={() => setFormData(prev => ({ ...prev, guestCount: prev.guestCount + 10 }))}
-                  >
-                    <ChevronUp className="h-6 w-6" />
-                  </Button>
-                </div>
+              {/* Fine-tune controls */}
+              <div className="flex items-center justify-center gap-4 pt-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-12 w-12 rounded-full"
+                  onClick={() => setFormData(prev => ({ ...prev, guestCount: Math.max(1, prev.guestCount - 10) }))}
+                >
+                  <ChevronDown className="h-6 w-6" />
+                </Button>
+                <span className="text-2xl font-bold text-primary w-24 text-center">{formData.guestCount}</span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-12 w-12 rounded-full"
+                  onClick={() => setFormData(prev => ({ ...prev, guestCount: prev.guestCount + 10 }))}
+                >
+                  <ChevronUp className="h-6 w-6" />
+                </Button>
               </div>
             </div>
           )}
@@ -404,9 +424,58 @@ export const AccessibleEventPlanner = ({ onSubmit, initialData }: AccessibleEven
                 <Wallet className="h-12 w-12 mx-auto text-primary mb-4" />
                 <h2 className="text-2xl font-bold text-secondary">Votre budget?</h2>
               </div>
+              
+              {/* Manual Input Fields */}
+              <div className="flex flex-col items-center gap-4">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Entrez votre budget en FCFA ou choisissez une gamme
+                </label>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Minimum</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10000"
+                      value={formData.budgetMin || ''}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0;
+                        setFormData(prev => ({ ...prev, budgetMin: value }));
+                      }}
+                      placeholder="Min"
+                      className="w-40 h-14 text-xl font-bold text-center border-2 border-border rounded-xl bg-background focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20"
+                      aria-label="Budget minimum"
+                    />
+                  </div>
+                  <span className="text-2xl font-bold text-muted-foreground">—</span>
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Maximum *</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="10000"
+                      value={formData.budgetMax || ''}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0;
+                        setFormData(prev => ({ ...prev, budgetMax: value }));
+                      }}
+                      placeholder="Max"
+                      className="w-40 h-14 text-xl font-bold text-center border-2 border-primary/30 rounded-xl bg-background focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20"
+                      aria-label="Budget maximum"
+                    />
+                  </div>
+                </div>
+                {formData.budgetMax > 0 && (
+                  <span className="text-lg font-semibold text-primary">
+                    {formData.budgetMin.toLocaleString()} - {formData.budgetMax.toLocaleString()} FCFA
+                  </span>
+                )}
+              </div>
+              
+              {/* Preset buttons */}
               <div className="grid grid-cols-2 gap-4">
                 {BUDGET_PRESETS.map((preset) => {
-                  const isSelected = formData.budgetMax === preset.max;
+                  const isSelected = formData.budgetMax === preset.max && formData.budgetMin === preset.min;
                   return (
                     <button
                       key={preset.max}
@@ -417,19 +486,19 @@ export const AccessibleEventPlanner = ({ onSubmit, initialData }: AccessibleEven
                         }
                       }}
                       className={cn(
-                        'flex flex-col items-center gap-3 p-6 rounded-2xl border-3 transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/50',
+                        'flex flex-col items-center gap-2 p-4 rounded-2xl border-3 transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/50',
                         isSelected 
                           ? 'border-primary bg-primary/10 shadow-xl' 
                           : 'border-border hover:border-primary/50 bg-card'
                       )}
                       aria-pressed={isSelected}
                     >
-                      <span className="text-3xl">{preset.icon}</span>
-                      <span className={cn('text-lg font-bold', isSelected && 'text-primary')}>
+                      <span className="text-2xl">{preset.icon}</span>
+                      <span className={cn('text-base font-bold', isSelected && 'text-primary')}>
                         {preset.label}
                       </span>
-                      <span className="text-sm text-muted-foreground">FCFA</span>
-                      {isSelected && <Check className="h-6 w-6 text-green-500" />}
+                      <span className="text-xs text-muted-foreground">FCFA</span>
+                      {isSelected && <Check className="h-5 w-5 text-green-500" />}
                     </button>
                   );
                 })}
