@@ -1,173 +1,220 @@
 
-# Plan d'intégration complète des paiements Paystack
+# Plan : Consultation des profils Fournisseurs et Clients depuis l'Admin
 
-## Résumé
-Ce plan va compléter l'intégration Paystack en ajoutant l'enregistrement automatique des transactions, une interface de gestion des transactions responsive/mobile-first, et des statistiques de paiement complètes.
-
----
-
-## Étape 1 : Corriger et améliorer l'Edge Function Paystack
-
-**Fichier : `supabase/functions/paystack/index.ts`**
-
-Modifications à apporter :
-- Ajouter l'enregistrement automatique de chaque transaction dans la table `transactions` lors de l'initialisation et de la vérification
-- Stocker : référence, montant, méthode de paiement, statut, order_id, provider_id, description
-- Mettre à jour le statut de la transaction quand le paiement est vérifié ou via webhook
-- Ajouter des logs détaillés pour le débogage
-
-**Nouveau flux :**
-1. `/initialize` → Crée une transaction avec status="pending"
-2. `/verify` → Met à jour la transaction avec status="success" ou "failed"
-3. `/webhook` → Backup pour mettre à jour si verify n'est pas appelé
+## Objectif
+Permettre aux administrateurs de consulter les profils complets des fournisseurs (avec leurs produits, avis, statistiques) et des clients (avec leur historique de commandes, favoris) directement depuis le tableau de bord admin.
 
 ---
 
-## Étape 2 : Créer la page de Transactions Admin
+## Approche choisie
 
-**Nouveau fichier : `src/pages/admin/AdminTransactions.tsx`**
+Plutot que de creer des pages separees, nous allons utiliser un **Dialog/Modal** pour afficher les details des profils. Cela permet une navigation rapide sans quitter la liste des utilisateurs.
 
-**Fonctionnalités :**
-- Tableau responsive et mobile-first avec colonnes adaptatives
-- Affichage des informations clés :
-  - Référence de transaction
-  - Nom du client (via order → client)
-  - Service/Produit commandé
-  - Montant en FCFA
-  - Méthode de paiement
-  - Statut (pending, success, failed) avec badges colorés
-  - Date/heure
-- Filtres :
-  - Par statut (tous, réussis, en attente, échoués)
-  - Par période (aujourd'hui, semaine, mois, personnalisé)
-  - Par méthode de paiement
-- Pagination
-- Export CSV (optionnel)
-
-**Design mobile-first :**
-- Sur mobile : cartes empilées avec informations essentielles
-- Sur desktop : tableau complet avec toutes les colonnes
-- Animations subtiles pour les changements de statut
+Pour les fournisseurs, nous ajouterons egalement un lien direct vers leur profil public.
 
 ---
 
-## Étape 3 : Créer le composant TransactionStats
+## Etape 1 : Creer le composant UserProfileDialog
 
-**Nouveau fichier : `src/components/transactions/TransactionStats.tsx`**
+**Nouveau fichier : `src/components/admin/UserProfileDialog.tsx`**
 
-**Statistiques affichées :**
-- Total des revenus (transactions réussies)
-- Nombre de transactions aujourd'hui/cette semaine/ce mois
-- Taux de réussite des paiements
-- Montant moyen par transaction
-- Graphique d'évolution des revenus (avec Recharts - déjà installé)
-- Répartition par méthode de paiement (pie chart)
+Ce composant affichera les details selon le role de l'utilisateur :
 
----
+### Pour les Fournisseurs (Prestataires) :
+- Avatar et informations de base (nom, telephone, localisation)
+- Badge de verification
+- Statistiques : nombre de produits, avis, note moyenne, commandes completees
+- Liste des produits (avec miniatures, prix, statut)
+- Lien vers le profil public `/provider/:id`
 
-## Étape 4 : Intégrer dans la navigation Admin
-
-**Fichier : `src/components/dashboard/DashboardLayout.tsx`**
-
-Ajouter dans `superAdminNav` :
-```typescript
-{ title: 'Transactions', href: '/admin/transactions', icon: Receipt }
-```
-
-**Fichier : `src/App.tsx`**
-
-Ajouter la route :
-```typescript
-<Route path="/admin/transactions" element={<AdminTransactions />} />
-```
+### Pour les Clients :
+- Avatar et informations de base
+- Statistiques : nombre de commandes, montant total depense
+- Historique des commandes recentes (5 dernieres)
+- Produits favoris
 
 ---
 
-## Étape 5 : Améliorer le Dashboard Admin avec les stats de paiement
+## Etape 2 : Modifier AdminUsers.tsx
 
-**Fichier : `src/pages/admin/AdminDashboard.tsx`**
+**Fichier : `src/pages/admin/AdminUsers.tsx`**
 
-Ajouter :
-- Widget de transactions récentes
-- Stats rapides (transactions du jour, revenus du jour)
-- Lien vers la page complète des transactions
+Modifications :
+1. Ajouter un etat pour l'utilisateur selectionne
+2. Connecter le bouton "Voir le profil" pour ouvrir le dialog
+3. Ajouter des onglets/filtres pour separer Clients / Fournisseurs / Tous
+4. Importer et utiliser le composant `UserProfileDialog`
 
 ---
 
-## Structure des fichiers à créer/modifier
+## Etape 3 : Creer le composant ProviderProductsList
+
+**Nouveau fichier : `src/components/admin/ProviderProductsList.tsx`**
+
+Affiche une liste compacte des produits d'un fournisseur :
+- Miniature de l'image
+- Nom du produit
+- Prix par jour
+- Statut (actif/inactif, verifie)
+- Bouton pour voir le produit dans le catalogue
+
+---
+
+## Etape 4 : Creer le composant ClientOrdersList
+
+**Nouveau fichier : `src/components/admin/ClientOrdersList.tsx`**
+
+Affiche l'historique des commandes d'un client :
+- Date de la commande
+- Montant total
+- Statut (badge colore)
+- Lien vers les details de la commande
+
+---
+
+## Etape 5 : Creer le barrel export
+
+**Nouveau fichier : `src/components/admin/index.ts`**
+
+Exporte tous les composants admin pour faciliter les imports.
+
+---
+
+## Structure des nouveaux fichiers
 
 ```text
 src/
-├── pages/
-│   └── admin/
-│       ├── AdminTransactions.tsx (nouveau)
-│       └── AdminDashboard.tsx (modifier)
-├── components/
-│   └── transactions/
-│       ├── TransactionStats.tsx (nouveau)
-│       ├── TransactionTable.tsx (nouveau)
-│       ├── TransactionCard.tsx (nouveau - mobile)
-│       └── index.ts (nouveau)
-├── App.tsx (modifier - ajouter route)
-supabase/
-└── functions/
-    └── paystack/
-        └── index.ts (modifier)
+└── components/
+    └── admin/
+        ├── UserProfileDialog.tsx    (nouveau)
+        ├── ProviderProductsList.tsx (nouveau)
+        ├── ClientOrdersList.tsx     (nouveau)
+        └── index.ts                 (nouveau)
 ```
 
 ---
 
-## Détails techniques
+## Details techniques
 
-### Table transactions (existante)
-| Colonne | Type | Description |
-|---------|------|-------------|
-| id | uuid | Identifiant unique |
-| order_id | uuid | Lien vers la commande |
-| provider_id | uuid | Prestataire concerné |
-| type | text | "payment", "refund", "commission" |
-| amount | numeric | Montant en FCFA |
-| status | text | "pending", "success", "failed" |
-| payment_method | text | "card", "mobile_money", etc. |
-| reference | text | Référence Paystack |
-| description | text | Description de la transaction |
-| created_at | timestamp | Date de création |
-| processed_at | timestamp | Date de traitement |
+### Donnees a recuperer pour un Fournisseur
 
-### API Paystack - Données récupérées
-Lors de la vérification, Paystack retourne :
-- `reference` - Référence unique
-- `amount` - Montant en kobo (diviser par 100)
-- `currency` - Devise (XOF)
-- `status` - success, failed, abandoned
-- `paid_at` - Date de paiement
-- `channel` - card, bank, mobile_money
-- `customer` - email, nom du client
+```typescript
+// Profil
+const profile = await supabase
+  .from('profiles')
+  .select('*')
+  .eq('user_id', userId)
+  .single();
+
+// Produits
+const products = await supabase
+  .from('products')
+  .select('*, category:categories(name)')
+  .eq('provider_id', userId);
+
+// Avis et statistiques
+const reviews = await supabase
+  .from('reviews')
+  .select('rating')
+  .eq('provider_id', userId);
+
+// Commandes completees
+const orders = await supabase
+  .from('orders')
+  .select('*', { count: 'exact' })
+  .eq('provider_id', userId)
+  .eq('status', 'completed');
+```
+
+### Donnees a recuperer pour un Client
+
+```typescript
+// Profil
+const profile = await supabase
+  .from('profiles')
+  .select('*')
+  .eq('user_id', userId)
+  .single();
+
+// Commandes
+const orders = await supabase
+  .from('orders')
+  .select('*')
+  .eq('client_id', userId)
+  .order('created_at', { ascending: false })
+  .limit(10);
+
+// Favoris
+const favorites = await supabase
+  .from('favorites')
+  .select('*, product:products(id, name, images, price_per_day)')
+  .eq('user_id', userId);
+```
 
 ---
 
-## Considérations de sécurité
+## Design du Dialog
 
-1. **RLS sur transactions** - Déjà configuré pour admin/accountant uniquement
-2. **Validation JWT** - Déjà en place dans l'edge function
-3. **Signature webhook** - Déjà vérifiée avec HMAC SHA512
+```text
++------------------------------------------+
+|  [X]     Profil Utilisateur              |
++------------------------------------------+
+|  +--------+                              |
+|  | Avatar |  Jean Dupont                 |
+|  +--------+  Prestataire  [Badge Verifie]|
+|              +225 07 12 34 56            |
+|              Abidjan, Cote d'Ivoire      |
++------------------------------------------+
+|  [Stats Cards]                           |
+|  +--------+  +--------+  +--------+      |
+|  |   12   |  |  4.5★  |  |   45   |      |
+|  |Produits|  | Note   |  |Commandes|     |
+|  +--------+  +--------+  +--------+      |
++------------------------------------------+
+|  Produits (12)                           |
+|  +--------------------------------------+|
+|  | [img] Tente 10x10   50,000 FCFA [V] ||
+|  | [img] Sonorisation  25,000 FCFA [V] ||
+|  | [img] Eclairage     15,000 FCFA     ||
+|  +--------------------------------------+|
++------------------------------------------+
+|  [ Voir profil public ]                  |
++------------------------------------------+
+```
 
 ---
 
-## À propos de la clé Paystack
+## Policies RLS
 
-Les logs montrent une erreur "Invalid key". Avant d'implémenter ces changements, il faudra :
-1. Vérifier que la clé secrète Paystack est correcte (elle doit commencer par `sk_live_` ou `sk_test_`)
-2. S'assurer que c'est bien une clé secrète (pas la clé publique)
+Les admins peuvent deja consulter toutes les donnees necessaires grace aux policies existantes :
+- `profiles` : Moderators/Supervisors/Support peuvent voir tous les profils
+- `products` : Admins peuvent gerer tous les produits
+- `orders` : Admins peuvent gerer toutes les commandes
+- `reviews` : Tout le monde peut voir les avis
 
-Je peux vous guider pour mettre à jour cette clé si nécessaire.
+Pour les admins, il faudra ajouter une policy sur `profiles` :
+
+```sql
+CREATE POLICY "Admins can view all profiles"
+  ON public.profiles FOR SELECT
+  USING (is_super_admin(auth.uid()) OR is_admin(auth.uid()));
+```
 
 ---
 
-## Résultat attendu
+## Responsive Design
 
-Après implémentation :
-- Chaque paiement sera automatiquement enregistré dans la table transactions
-- Une interface professionnelle permettra de visualiser toutes les transactions
-- Des statistiques détaillées avec graphiques seront disponibles
-- Le tout sera responsive et accessible sur mobile
+Le dialog sera entierement responsive :
+- Sur desktop : dialog large (max-w-2xl) avec grille 2 colonnes
+- Sur mobile : dialog pleine largeur avec scroll, une seule colonne
+
+---
+
+## Resultat attendu
+
+Apres implementation :
+1. Cliquer sur "Voir le profil" dans la liste des utilisateurs ouvrira un dialog detaille
+2. Pour les fournisseurs : affichage de tous leurs produits, avis et statistiques
+3. Pour les clients : affichage de leur historique de commandes et favoris
+4. Un bouton permet d'acceder au profil public des fournisseurs
+5. Interface responsive et fluide
