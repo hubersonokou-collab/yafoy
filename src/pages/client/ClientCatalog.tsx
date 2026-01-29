@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -22,9 +22,80 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Package, Search, Calendar, Mic, MicOff } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { 
+  Loader2, 
+  Package, 
+  Search, 
+  Calendar, 
+  Mic, 
+  MicOff,
+  Heart,
+  PartyPopper,
+  Baby,
+  Cake,
+  Building2,
+  Church,
+  Sparkles,
+  HelpCircle,
+  Filter
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVoice } from '@/hooks/useVoice';
+
+// Event types with icons and suitable categories
+const EVENT_TYPES = [
+  { 
+    id: 'all', 
+    label: 'Tous', 
+    icon: Sparkles,
+    color: 'bg-primary/10 text-primary',
+    categories: [] 
+  },
+  { 
+    id: 'mariage', 
+    label: 'Mariage', 
+    icon: Heart,
+    color: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
+    categories: ['decoration', 'mobilier', 'sonorisation', 'eclairage', 'vaisselle', 'photographie', 'traiteur', 'transport']
+  },
+  { 
+    id: 'anniversaire', 
+    label: 'Anniversaire', 
+    icon: Cake,
+    color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    categories: ['decoration', 'mobilier', 'sonorisation', 'eclairage', 'vaisselle', 'photographie', 'traiteur']
+  },
+  { 
+    id: 'bapteme', 
+    label: 'Baptême', 
+    icon: Baby,
+    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    categories: ['decoration', 'mobilier', 'vaisselle', 'photographie', 'traiteur']
+  },
+  { 
+    id: 'communion', 
+    label: 'Communion', 
+    icon: Church,
+    color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    categories: ['decoration', 'mobilier', 'vaisselle', 'photographie', 'traiteur']
+  },
+  { 
+    id: 'fete_entreprise', 
+    label: 'Entreprise', 
+    icon: Building2,
+    color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    categories: ['mobilier', 'sonorisation', 'eclairage', 'vaisselle', 'traiteur', 'transport']
+  },
+  { 
+    id: 'fiancailles', 
+    label: 'Fiançailles', 
+    icon: PartyPopper,
+    color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+    categories: ['decoration', 'mobilier', 'vaisselle', 'photographie', 'traiteur']
+  },
+];
 
 const ClientCatalog = () => {
   const { user, loading: authLoading } = useAuth();
@@ -36,6 +107,7 @@ const ClientCatalog = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [categoryFilter, setCategoryFilter] = useState(searchParams.get('category') || 'all');
+  const [eventFilter, setEventFilter] = useState('all');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [orderForm, setOrderForm] = useState({
     event_date: '',
@@ -47,12 +119,15 @@ const ClientCatalog = () => {
   const [submitting, setSubmitting] = useState(false);
 
   // Voice search
-  const { isListening, startListening, stopListening, isSupported } = useVoice({
+  const { isListening, startListening, stopListening, isSupported, speak, isTTSSupported } = useVoice({
     language: 'fr-FR',
     continuous: false,
     interimResults: true,
     onResult: (text, isFinal) => {
       setSearchQuery(text);
+      if (isFinal && isTTSSupported) {
+        speak(`Recherche de ${text}`);
+      }
     },
     onError: (error) => {
       toast({
@@ -64,15 +139,8 @@ const ClientCatalog = () => {
   });
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-      return;
-    }
-
-    if (user) {
-      fetchData();
-    }
-  }, [user, authLoading, navigate]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -81,7 +149,7 @@ const ClientCatalog = () => {
           .from('products')
           .select(`
             *,
-            category:categories(name)
+            category:categories(id, name)
           `)
           .eq('is_active', true)
           .order('created_at', { ascending: false }),
@@ -173,14 +241,42 @@ const ClientCatalog = () => {
       stopListening();
     } else {
       startListening();
+      if (isTTSSupported) {
+        speak('Dites ce que vous recherchez');
+      }
     }
   };
 
+  // Get categories for selected event type
+  const selectedEventType = EVENT_TYPES.find(e => e.id === eventFilter);
+  const eventCategories = selectedEventType?.categories || [];
+
+  // Filter products based on search, category, and event type
   const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory = categoryFilter === 'all' || p.category_id === categoryFilter;
-    return matchesSearch && matchesCategory;
+    
+    // If an event type is selected, only show products from suitable categories
+    let matchesEvent = true;
+    if (eventFilter !== 'all' && eventCategories.length > 0) {
+      const categoryName = p.category?.name?.toLowerCase().replace(/[éè]/g, 'e').replace(/[àâ]/g, 'a');
+      matchesEvent = eventCategories.some(cat => 
+        categoryName?.includes(cat.toLowerCase())
+      );
+    }
+    
+    return matchesSearch && matchesCategory && matchesEvent;
   });
+
+  // Group products by category for section display
+  const productsByCategory = categories.reduce((acc, cat) => {
+    const catProducts = filteredProducts.filter(p => p.category_id === cat.id);
+    if (catProducts.length > 0) {
+      acc[cat.id] = { category: cat, products: catProducts };
+    }
+    return acc;
+  }, {} as Record<string, { category: any; products: any[] }>);
 
   if (authLoading || loading) {
     return (
@@ -194,43 +290,91 @@ const ClientCatalog = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-secondary">Catalogue</h1>
-          <p className="text-muted-foreground">Parcourez tous les équipements disponibles</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-secondary">Catalogue</h1>
+            <p className="text-muted-foreground">Trouvez l'équipement parfait pour votre événement</p>
+          </div>
+          <Badge variant="outline" className="w-fit text-sm">
+            {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''}
+          </Badge>
         </div>
 
-        {/* Filters */}
-        <Card>
+        {/* Event Type Filter - Large visual buttons */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Sparkles className="h-4 w-4" />
+            <span>Type d'événement</span>
+          </div>
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex gap-3 pb-3">
+              {EVENT_TYPES.map((event) => {
+                const Icon = event.icon;
+                const isSelected = eventFilter === event.id;
+                return (
+                  <button
+                    key={event.id}
+                    onClick={() => setEventFilter(event.id)}
+                    className={`
+                      flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all
+                      min-w-[100px] hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary
+                      ${isSelected 
+                        ? 'border-primary bg-primary/5 shadow-lg' 
+                        : 'border-border hover:border-primary/50 bg-card'
+                      }
+                    `}
+                    aria-pressed={isSelected}
+                    aria-label={event.label}
+                  >
+                    <div className={`p-3 rounded-full ${event.color}`}>
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <span className={`text-sm font-medium ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                      {event.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </div>
+
+        {/* Search and Category Filter */}
+        <Card className="shadow-sm">
           <CardContent className="p-4">
             <div className="flex flex-col gap-4 sm:flex-row">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Rechercher un produit..."
+                  placeholder="Rechercher un équipement..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`pl-10 pr-12 ${isListening ? 'ring-2 ring-primary animate-pulse' : ''}`}
+                  className={`pl-11 pr-14 h-12 text-base ${isListening ? 'ring-2 ring-primary animate-pulse' : ''}`}
+                  aria-label="Rechercher"
                 />
                 {isSupported && (
                   <Button
-                    variant="ghost"
+                    variant={isListening ? 'default' : 'ghost'}
                     size="icon"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full ${isListening ? 'animate-pulse' : ''}`}
                     onClick={toggleVoiceSearch}
+                    aria-label={isListening ? 'Arrêter l\'écoute' : 'Recherche vocale'}
                   >
                     {isListening ? (
-                      <MicOff className="h-4 w-4 text-primary" />
+                      <MicOff className="h-5 w-5" />
                     ) : (
-                      <Mic className="h-4 w-4" />
+                      <Mic className="h-5 w-5" />
                     )}
                   </Button>
                 )}
               </div>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-full sm:w-48">
+                <SelectTrigger className="w-full sm:w-56 h-12">
+                  <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Catégorie" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover border shadow-lg z-50">
                   <SelectItem value="all">Toutes les catégories</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
@@ -243,26 +387,57 @@ const ClientCatalog = () => {
           </CardContent>
         </Card>
 
-        {/* Products Grid */}
+        {/* Products by Category Sections */}
         {filteredProducts.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Package className="mb-3 h-12 w-12 text-muted-foreground" />
-              <p className="text-muted-foreground">Aucun produit trouvé</p>
+          <Card className="shadow-sm">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <Package className="mb-4 h-16 w-16 text-muted-foreground/50" />
+              <p className="text-lg font-medium text-muted-foreground mb-2">Aucun produit trouvé</p>
+              <p className="text-sm text-muted-foreground/70 text-center max-w-sm">
+                Essayez de modifier vos filtres ou d'utiliser la recherche vocale
+              </p>
+              {isSupported && (
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={toggleVoiceSearch}
+                >
+                  <Mic className="mr-2 h-4 w-4" />
+                  Recherche vocale
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={{
-                  ...product,
-                  category: product.category,
-                }}
-                showFavoriteButton
-                onReserve={() => setSelectedProduct(product)}
-              />
+          <div className="space-y-10">
+            {Object.values(productsByCategory).map(({ category, products: catProducts }) => (
+              <section key={category.id} className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-semibold text-secondary">{category.name}</h2>
+                  <Badge variant="secondary" className="text-xs">
+                    {catProducts.length} article{catProducts.length > 1 ? 's' : ''}
+                  </Badge>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {catProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={{
+                        ...product,
+                        category: product.category,
+                      }}
+                      showFavoriteButton
+                      onReserve={() => {
+                        if (!user) {
+                          navigate('/auth');
+                          return;
+                        }
+                        setSelectedProduct(product);
+                      }}
+                    />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
@@ -271,17 +446,21 @@ const ClientCatalog = () => {
         <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Réserver ce produit</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                Réserver ce produit
+              </DialogTitle>
             </DialogHeader>
             {selectedProduct && (
               <form onSubmit={handleOrder} className="space-y-4">
-                <div className="rounded-lg border p-3">
-                  <p className="font-semibold">{selectedProduct.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {Number(selectedProduct.price_per_day).toLocaleString()} FCFA/jour
+                <div className="rounded-xl border-2 border-primary/20 p-4 bg-primary/5">
+                  <p className="font-semibold text-lg">{selectedProduct.name}</p>
+                  <p className="text-primary font-bold text-xl mt-1">
+                    {Number(selectedProduct.price_per_day).toLocaleString()} FCFA
+                    <span className="text-sm font-normal text-muted-foreground">/jour</span>
                   </p>
                   {selectedProduct.deposit_amount > 0 && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Caution: {Number(selectedProduct.deposit_amount).toLocaleString()} FCFA
                     </p>
                   )}
@@ -289,23 +468,25 @@ const ClientCatalog = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="event_date">Date de l'événement</Label>
+                    <Label htmlFor="event_date">Date</Label>
                     <Input
                       id="event_date"
                       type="date"
                       value={orderForm.event_date}
                       onChange={(e) => setOrderForm({ ...orderForm, event_date: e.target.value })}
                       min={new Date().toISOString().split('T')[0]}
+                      className="h-11"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="rental_days">Nombre de jours</Label>
+                    <Label htmlFor="rental_days">Jours</Label>
                     <Input
                       id="rental_days"
                       type="number"
                       min="1"
                       value={orderForm.rental_days}
                       onChange={(e) => setOrderForm({ ...orderForm, rental_days: e.target.value })}
+                      className="h-11"
                     />
                   </div>
                 </div>
@@ -320,21 +501,23 @@ const ClientCatalog = () => {
                       max={selectedProduct.quantity_available}
                       value={orderForm.quantity}
                       onChange={(e) => setOrderForm({ ...orderForm, quantity: e.target.value })}
+                      className="h-11"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="event_location">Lieu</Label>
                     <Input
                       id="event_location"
-                      placeholder="Ex: Abidjan"
+                      placeholder="Ville"
                       value={orderForm.event_location}
                       onChange={(e) => setOrderForm({ ...orderForm, event_location: e.target.value })}
+                      className="h-11"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="notes">Notes (optionnel)</Label>
+                  <Label htmlFor="notes">Notes</Label>
                   <Textarea
                     id="notes"
                     placeholder="Informations supplémentaires..."
@@ -345,16 +528,15 @@ const ClientCatalog = () => {
                 </div>
 
                 {/* Total */}
-                <div className="rounded-lg bg-muted p-3">
+                <div className="rounded-xl bg-muted p-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Sous-total</span>
+                    <span>Location</span>
                     <span>
                       {(
                         selectedProduct.price_per_day *
                         (parseInt(orderForm.rental_days) || 1) *
                         (parseInt(orderForm.quantity) || 1)
-                      ).toLocaleString()}{' '}
-                      FCFA
+                      ).toLocaleString()} FCFA
                     </span>
                   </div>
                   {selectedProduct.deposit_amount > 0 && (
@@ -363,12 +545,11 @@ const ClientCatalog = () => {
                       <span>
                         {(
                           selectedProduct.deposit_amount * (parseInt(orderForm.quantity) || 1)
-                        ).toLocaleString()}{' '}
-                        FCFA
+                        ).toLocaleString()} FCFA
                       </span>
                     </div>
                   )}
-                  <div className="mt-2 flex justify-between font-bold border-t pt-2">
+                  <div className="flex justify-between font-bold text-lg border-t pt-2">
                     <span>Total</span>
                     <span className="text-primary">
                       {(
@@ -376,18 +557,17 @@ const ClientCatalog = () => {
                           (parseInt(orderForm.rental_days) || 1) +
                           (selectedProduct.deposit_amount || 0)) *
                         (parseInt(orderForm.quantity) || 1)
-                      ).toLocaleString()}{' '}
-                      FCFA
+                      ).toLocaleString()} FCFA
                     </span>
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={submitting}>
+                <Button type="submit" className="w-full h-12 text-base" disabled={submitting}>
                   {submitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     <>
-                      <Calendar className="mr-2 h-4 w-4" />
+                      <Calendar className="mr-2 h-5 w-5" />
                       Confirmer la réservation
                     </>
                   )}
