@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -21,8 +22,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Loader2, Search, MoreVertical, UserCheck, UserX, Mail, Phone } from 'lucide-react';
+import { Loader2, Search, MoreVertical, UserCheck, UserX, Phone, Users, Package, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { UserProfileDialog } from '@/components/admin';
 
 interface UserWithRole {
   id: string;
@@ -36,6 +38,8 @@ interface UserWithRole {
   };
 }
 
+type RoleFilter = 'all' | 'client' | 'provider';
+
 const AdminUsers = () => {
   const { user, loading: authLoading, isSuperAdmin, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -43,6 +47,8 @@ const AdminUsers = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+  const [selectedUser, setSelectedUser] = useState<{ userId: string; role: string } | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -109,11 +115,22 @@ const AdminUsers = () => {
   };
 
   const filteredUsers = users.filter((u) => {
+    // Role filter
+    if (roleFilter !== 'all' && u.role !== roleFilter) return false;
+    
+    // Search filter
     const name = u.profile?.full_name?.toLowerCase() || '';
     const phone = u.profile?.phone?.toLowerCase() || '';
     const query = searchQuery.toLowerCase();
     return name.includes(query) || phone.includes(query) || u.role.includes(query);
   });
+
+  const handleViewProfile = (userId: string, role: string) => {
+    setSelectedUser({ userId, role });
+  };
+
+  const clientsCount = users.filter((u) => u.role === 'client').length;
+  const providersCount = users.filter((u) => u.role === 'provider').length;
 
   if (authLoading || loading) {
     return (
@@ -134,13 +151,32 @@ const AdminUsers = () => {
           </div>
         </div>
 
-        {/* Search */}
+        {/* Filters */}
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-4 space-y-4">
+            {/* Role Tabs */}
+            <Tabs value={roleFilter} onValueChange={(v) => setRoleFilter(v as RoleFilter)}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="all" className="gap-2">
+                  <Users className="h-4 w-4" />
+                  Tous ({users.length})
+                </TabsTrigger>
+                <TabsTrigger value="client" className="gap-2">
+                  <User className="h-4 w-4" />
+                  Clients ({clientsCount})
+                </TabsTrigger>
+                <TabsTrigger value="provider" className="gap-2">
+                  <Package className="h-4 w-4" />
+                  Prestataires ({providersCount})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Rechercher par nom, téléphone ou rôle..."
+                placeholder="Rechercher par nom, téléphone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -206,7 +242,7 @@ const AdminUsers = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewProfile(u.user_id, u.role)}>
                               <UserCheck className="mr-2 h-4 w-4" />
                               Voir le profil
                             </DropdownMenuItem>
@@ -224,6 +260,14 @@ const AdminUsers = () => {
             </Table>
           </CardContent>
         </Card>
+
+        {/* User Profile Dialog */}
+        <UserProfileDialog
+          open={!!selectedUser}
+          onOpenChange={(open) => !open && setSelectedUser(null)}
+          userId={selectedUser?.userId || ''}
+          userRole={selectedUser?.role || 'client'}
+        />
       </div>
     </DashboardLayout>
   );
