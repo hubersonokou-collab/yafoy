@@ -16,6 +16,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminProducts from "./pages/admin/AdminProducts";
 import AdminOrders from "./pages/admin/AdminOrders";
+import AdminTeam from "./pages/admin/AdminTeam";
 
 // Provider pages
 import ProviderDashboard from "./pages/provider/ProviderDashboard";
@@ -32,6 +33,29 @@ import ClientOrders from "./pages/client/ClientOrders";
 import ProductDetail from "./pages/client/ProductDetail";
 import ClientFavorites from "./pages/client/ClientFavorites";
 import ClientSettings from "./pages/client/ClientSettings";
+
+// Accountant pages
+import AccountantDashboard from "./pages/accountant/AccountantDashboard";
+import AccountantTransactions from "./pages/accountant/AccountantTransactions";
+import AccountantWithdrawals from "./pages/accountant/AccountantWithdrawals";
+import AccountantReports from "./pages/accountant/AccountantReports";
+
+// Supervisor pages
+import SupervisorDashboard from "./pages/supervisor/SupervisorDashboard";
+import SupervisorOrders from "./pages/supervisor/SupervisorOrders";
+
+// Moderator pages
+import ModeratorDashboard from "./pages/moderator/ModeratorDashboard";
+import ModeratorProducts from "./pages/moderator/ModeratorProducts";
+import ModeratorReports from "./pages/moderator/ModeratorReports";
+import ModeratorProviders from "./pages/moderator/ModeratorProviders";
+import ModeratorAccounts from "./pages/moderator/ModeratorAccounts";
+
+// Support pages
+import SupportDashboard from "./pages/support/SupportDashboard";
+import SupportTickets from "./pages/support/SupportTickets";
+import SupportUsers from "./pages/support/SupportUsers";
+import SupportFAQ from "./pages/support/SupportFAQ";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +78,30 @@ const App = () => (
             <Route path="/admin/providers" element={<AdminUsers />} />
             <Route path="/admin/products" element={<AdminProducts />} />
             <Route path="/admin/orders" element={<AdminOrders />} />
+            <Route path="/admin/team" element={<AdminTeam />} />
+            
+            {/* Accountant Routes */}
+            <Route path="/accountant" element={<AccountantDashboard />} />
+            <Route path="/accountant/transactions" element={<AccountantTransactions />} />
+            <Route path="/accountant/withdrawals" element={<AccountantWithdrawals />} />
+            <Route path="/accountant/reports" element={<AccountantReports />} />
+            
+            {/* Supervisor Routes */}
+            <Route path="/supervisor" element={<SupervisorDashboard />} />
+            <Route path="/supervisor/orders" element={<SupervisorOrders />} />
+            
+            {/* Moderator Routes */}
+            <Route path="/moderator" element={<ModeratorDashboard />} />
+            <Route path="/moderator/products" element={<ModeratorProducts />} />
+            <Route path="/moderator/reports" element={<ModeratorReports />} />
+            <Route path="/moderator/providers" element={<ModeratorProviders />} />
+            <Route path="/moderator/accounts" element={<ModeratorAccounts />} />
+            
+            {/* Support Routes */}
+            <Route path="/support" element={<SupportDashboard />} />
+            <Route path="/support/tickets" element={<SupportTickets />} />
+            <Route path="/support/users" element={<SupportUsers />} />
+            <Route path="/support/faq" element={<SupportFAQ />} />
             
             {/* Provider Routes */}
             <Route path="/provider" element={<ProviderDashboard />} />
