@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 interface PaystackInitializeRequest {
@@ -16,7 +16,78 @@ interface PaystackVerifyRequest {
   reference: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// Create a transaction record in the database
+async function createTransaction(
+  supabase: any,
+  data: {
+    orderId: string;
+    providerId: string;
+    amount: number;
+    reference: string;
+    status: string;
+    type: string;
+    paymentMethod?: string;
+    description?: string;
+  }
+): Promise<{ data: any; error: any }> {
+  console.log('Creating transaction record:', data);
+  
+  const result = await supabase
+    .from('transactions')
+    .insert({
+      order_id: data.orderId,
+      provider_id: data.providerId,
+      amount: data.amount,
+      reference: data.reference,
+      status: data.status,
+      type: data.type,
+      payment_method: data.paymentMethod || null,
+      description: data.description || `Paiement commande #${data.orderId.slice(0, 8)}`,
+    })
+    .select()
+    .single();
+  
+  if (result.error) {
+    console.error('Error creating transaction:', result.error);
+  } else {
+    console.log('Transaction created successfully:', result.data.id);
+  }
+  
+  return result;
+}
+
+// Update an existing transaction
+async function updateTransaction(
+  supabase: any,
+  reference: string,
+  data: {
+    status: string;
+    paymentMethod?: string;
+    processedAt?: string;
+  }
+): Promise<{ data: any; error: any }> {
+  console.log('Updating transaction:', reference, data);
+  
+  const updateData: any = { status: data.status };
+  if (data.paymentMethod) updateData.payment_method = data.paymentMethod;
+  if (data.processedAt) updateData.processed_at = data.processedAt;
+  
+  const result = await supabase
+    .from('transactions')
+    .update(updateData)
+    .eq('reference', reference)
+    .select()
+    .single();
+  
+  if (result.error) {
+    console.error('Error updating transaction:', result.error);
+  } else {
+    console.log('Transaction updated successfully:', result.data?.id);
+  }
+  
+  return result;
+}
+
 async function handleWebhook(
   req: Request, 
   supabase: any,
@@ -58,8 +129,10 @@ async function handleWebhook(
   if (event.event === 'charge.success') {
     const transaction = event.data;
     const orderId = transaction.metadata?.order_id;
+    const reference = transaction.reference;
 
     if (orderId) {
+      // Update order status
       const { error: updateError } = await supabase
         .from('orders')
         .update({
@@ -73,7 +146,23 @@ async function handleWebhook(
       } else {
         console.log('Webhook: Order updated successfully:', orderId);
       }
+
+      // Update transaction record
+      await updateTransaction(supabase, reference, {
+        status: 'success',
+        paymentMethod: transaction.channel || 'card',
+        processedAt: new Date().toISOString(),
+      });
     }
+  } else if (event.event === 'charge.failed') {
+    const transaction = event.data;
+    const reference = transaction.reference;
+
+    // Update transaction record to failed
+    await updateTransaction(supabase, reference, {
+      status: 'failed',
+      processedAt: new Date().toISOString(),
+    });
   }
 
   return new Response(
@@ -91,6 +180,7 @@ Deno.serve(async (req) => {
   try {
     const PAYSTACK_SECRET_KEY = Deno.env.get('PAYSTACK_SECRET_KEY');
     if (!PAYSTACK_SECRET_KEY) {
+      console.error('PAYSTACK_SECRET_KEY is not configured');
       throw new Error('PAYSTACK_SECRET_KEY is not configured');
     }
 
@@ -100,6 +190,8 @@ Deno.serve(async (req) => {
     
     const url = new URL(req.url);
     const action = url.pathname.split('/').pop();
+
+    console.log('Paystack function called:', action);
 
     // Webhook doesn't require user auth - uses signature verification instead
     if (action === 'webhook' && req.method === 'POST') {
@@ -125,6 +217,7 @@ Deno.serve(async (req) => {
     const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
     
     if (claimsError || !claimsData?.claims) {
+      console.error('JWT verification failed:', claimsError);
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -137,6 +230,8 @@ Deno.serve(async (req) => {
     if (action === 'initialize' && req.method === 'POST') {
       const { orderId, email, amount, callbackUrl }: PaystackInitializeRequest = await req.json();
 
+      console.log('Initialize payment request:', { orderId, email, amount });
+
       if (!orderId || !email || !amount) {
         return new Response(
           JSON.stringify({ error: 'orderId, email, and amount are required' }),
@@ -144,14 +239,15 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Verify the user owns this order
+      // Verify the user owns this order and get provider info
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .select('client_id')
+        .select('client_id, provider_id')
         .eq('id', orderId)
         .single();
 
       if (orderError || !order) {
+        console.error('Order not found:', orderError);
         return new Response(
           JSON.stringify({ error: 'Order not found' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -159,6 +255,7 @@ Deno.serve(async (req) => {
       }
 
       if (order.client_id !== userId) {
+        console.error('Unauthorized: user does not own this order');
         return new Response(
           JSON.stringify({ error: 'Unauthorized - not your order' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -168,6 +265,8 @@ Deno.serve(async (req) => {
       // Convert amount to kobo (Paystack uses lowest currency unit)
       const amountInKobo = Math.round(amount * 100);
       const reference = `order_${orderId}_${Date.now()}`;
+
+      console.log('Calling Paystack API to initialize payment...');
 
       const response = await fetch('https://api.paystack.co/transaction/initialize', {
         method: 'POST',
@@ -194,7 +293,18 @@ Deno.serve(async (req) => {
         throw new Error(data.message || 'Failed to initialize payment');
       }
 
-      console.log('Payment initialized:', { reference, orderId, userId });
+      console.log('Payment initialized successfully:', { reference, orderId, userId });
+
+      // Create transaction record with pending status
+      await createTransaction(supabase, {
+        orderId,
+        providerId: order.provider_id,
+        amount,
+        reference: data.data.reference,
+        status: 'pending',
+        type: 'payment',
+        description: `Paiement commande #${orderId.slice(0, 8)}`,
+      });
 
       return new Response(
         JSON.stringify({
@@ -209,6 +319,8 @@ Deno.serve(async (req) => {
 
     if (action === 'verify' && req.method === 'POST') {
       const { reference }: PaystackVerifyRequest = await req.json();
+
+      console.log('Verify payment request:', { reference });
 
       if (!reference) {
         return new Response(
@@ -234,6 +346,13 @@ Deno.serve(async (req) => {
       const transaction = data.data;
       const orderId = transaction.metadata?.order_id;
 
+      console.log('Paystack verification response:', { 
+        reference, 
+        status: transaction.status,
+        channel: transaction.channel,
+        orderId 
+      });
+
       // Verify user has access to this order
       if (orderId) {
         const { data: order } = await supabase
@@ -250,32 +369,43 @@ Deno.serve(async (req) => {
         }
       }
 
-      console.log('Payment verification:', { reference, status: transaction.status, userId });
+      const paymentSuccess = transaction.status === 'success';
 
-      if (transaction.status === 'success' && orderId) {
-        const { error: updateError } = await supabase
-          .from('orders')
-          .update({
-            status: 'confirmed',
-            deposit_paid: transaction.amount / 100,
-          })
-          .eq('id', orderId);
+      if (orderId) {
+        if (paymentSuccess) {
+          // Update order status
+          const { error: updateError } = await supabase
+            .from('orders')
+            .update({
+              status: 'confirmed',
+              deposit_paid: transaction.amount / 100,
+            })
+            .eq('id', orderId);
 
-        if (updateError) {
-          console.error('Error updating order:', updateError);
-        } else {
-          console.log('Order updated successfully:', orderId);
+          if (updateError) {
+            console.error('Error updating order:', updateError);
+          } else {
+            console.log('Order updated successfully:', orderId);
+          }
         }
+
+        // Update transaction record
+        await updateTransaction(supabase, reference, {
+          status: paymentSuccess ? 'success' : 'failed',
+          paymentMethod: transaction.channel || 'card',
+          processedAt: transaction.paid_at || new Date().toISOString(),
+        });
       }
 
       return new Response(
         JSON.stringify({
-          success: transaction.status === 'success',
+          success: paymentSuccess,
           status: transaction.status,
           amount: transaction.amount / 100,
           currency: transaction.currency,
           reference: transaction.reference,
           paid_at: transaction.paid_at,
+          channel: transaction.channel,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
