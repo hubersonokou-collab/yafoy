@@ -1,262 +1,421 @@
 
-# Plan de Correction et Interconnexion du Projet YAFOY
+# Plan d'implementation des nouveaux roles et interfaces d'equipe
 
-Ce plan vise a corriger les problemes de navigation, de redirection post-connexion, et d'interconnexion entre toutes les parties de l'application.
+## Apercu
 
----
-
-## Problemes Identifies
-
-### 1. Redirection Post-Connexion
-**Probleme:** Apres connexion, tous les utilisateurs sont rediriges vers `/` (page d'accueil) au lieu de leur dashboard respectif.
-
-**Impact:** Les utilisateurs doivent naviguer manuellement vers leur espace de travail.
-
-### 2. Page d'Accueil Non Connectee aux Dashboards
-**Probleme:** La page Index (`/`) n'offre pas de liens vers les dashboards selon le role de l'utilisateur connecte.
-
-**Impact:** Apres connexion, l'utilisateur voit uniquement "Explorer le catalogue" sans acces direct a son espace.
-
-### 3. Boutons d'Action Non Fonctionnels
-**Probleme:** Plusieurs boutons sur la page d'accueil ne sont pas lies a des actions concretes.
-
-### 4. Erreur sur ProductDetail
-**Probleme:** Dans les logs, une erreur `invalid input syntax for type uuid: ":id"` indique que la route `/client/product/:id` ne recupere pas correctement le parametre.
-
-**Analyse:** Le fichier ProductDetail.tsx fonctionne correctement, l'erreur venait d'un acces direct a la route template.
+Ce plan decrit la creation de 4 nouveaux roles d'equipe (Comptable, Superviseur, Moderateur, Support Client) avec leurs interfaces dediees, ainsi qu'une fonctionnalite d'ajout de membres dans le tableau de bord admin.
 
 ---
 
-## Plan de Correction
+## Phase 1: Mise a jour de la base de donnees
 
-### Etape 1: Redirection Intelligente Post-Connexion
+### 1.1 Extension de l'enum des roles
 
-**Fichier:** `src/pages/Auth.tsx`
+Ajouter les nouveaux roles a l'enum `user_role` existant:
+- `accountant` (Comptable)
+- `supervisor` (Superviseur)  
+- `moderator` (Moderateur)
+- `support` (Support Client)
 
-Modifier le useEffect qui gere la redirection pour prendre en compte le role de l'utilisateur:
+### 1.2 Creation de nouvelles tables
 
-```text
-Avant:
-  useEffect(() => {
-    if (user && !loading) {
-      navigate('/');
-    }
-  }, [user, loading, navigate]);
+**Table `transactions`** - Pour le suivi comptable:
+- `id`, `order_id`, `type` (payment, commission, withdrawal)
+- `amount`, `status`, `payment_method` (mobile_money, card, cash)
+- `provider_id`, `created_at`, `processed_at`, `processed_by`
 
-Apres:
-  useEffect(() => {
-    if (user && !loading && userRole) {
-      // Redirection selon le role
-      if (userRole === 'super_admin' || userRole === 'admin') {
-        navigate('/admin');
-      } else if (userRole === 'provider') {
-        navigate('/provider');
-      } else {
-        navigate('/client');
-      }
-    }
-  }, [user, loading, userRole, navigate]);
-```
+**Table `withdrawals`** - Pour les retraits prestataires:
+- `id`, `provider_id`, `amount`, `status` (pending, approved, rejected, completed)
+- `payment_method`, `account_details`, `requested_at`, `processed_at`, `processed_by`
 
-**Modifications necessaires:**
-- Importer `userRole` depuis `useAuth()`
-- Attendre que le role soit charge avant de rediriger
-- Ajouter une condition pour les utilisateurs anonymes (invites)
+**Table `reports`** - Pour les signalements:
+- `id`, `reporter_id`, `reported_user_id`, `reported_product_id`
+- `type` (fake_account, inappropriate_content, fraud, other)
+- `description`, `status` (pending, investigating, resolved, dismissed)
+- `created_at`, `resolved_at`, `resolved_by`
 
-### Etape 2: Page d'Accueil avec Navigation Contextuelle
+**Table `support_tickets`** - Pour le support client:
+- `id`, `user_id`, `subject`, `description`
+- `status` (open, in_progress, resolved, closed)
+- `priority` (low, medium, high), `assigned_to`
+- `created_at`, `updated_at`
 
-**Fichier:** `src/pages/Index.tsx`
+**Table `support_messages`** - Messages des tickets:
+- `id`, `ticket_id`, `sender_id`, `message`, `created_at`
 
-Ameliorer la page d'accueil pour:
-1. Afficher des boutons d'action differents selon le role
-2. Lier "Explorer le catalogue" vers `/client/catalog`
-3. Ajouter un bouton "Mon espace" qui redirige vers le bon dashboard
+### 1.3 Creation de fonctions utilitaires
 
-```text
-Structure des liens selon le role:
-- Super Admin/Admin: "Tableau de bord" -> /admin
-- Provider: "Mon espace prestataire" -> /provider
-- Client: "Mon espace" -> /client
-- Non connecte: "Commencer maintenant" -> /auth
-```
+Nouvelles fonctions `SECURITY DEFINER`:
+- `is_accountant(_user_id uuid)` 
+- `is_supervisor(_user_id uuid)`
+- `is_moderator(_user_id uuid)`
+- `is_support(_user_id uuid)`
 
-### Etape 3: Liens de Navigation Complets
+### 1.4 Politiques RLS
 
-**Fichier:** `src/pages/Index.tsx`
-
-Ajouter les liens manquants:
-- "Decouvrir les offres" -> `/client/catalog`
-- "Explorer le catalogue" -> `/client/catalog`
-
-### Etape 4: Gestion des Utilisateurs Invites
-
-**Fichiers:** `src/pages/Auth.tsx`, `src/pages/Index.tsx`
-
-Les utilisateurs anonymes (invites) doivent:
-1. Etre rediriges vers `/client` (catalogue accessible en lecture)
-2. Avoir un message les invitant a creer un compte pour reserver
-
-### Etape 5: Amelioration du Dashboard Client
-
-**Fichier:** `src/pages/client/ClientDashboard.tsx`
-
-S'assurer que les boutons "Reserver" sur les produits redirigent vers la page de detail:
-
-```text
-onClick={() => navigate(`/client/product/${product.id}`)}
-```
-
-### Etape 6: Liens Inter-Pages Provider
-
-**Fichiers:**
-- `src/pages/provider/ProviderDashboard.tsx`
-- `src/pages/provider/ProviderProducts.tsx`
-- `src/pages/provider/ProviderOrders.tsx`
-
-Verifier que tous les liens de navigation fonctionnent:
-- "Ajouter un produit" -> formulaire de creation
-- "Voir tout" sur commandes -> `/provider/orders`
-- "Voir tout" sur produits -> `/provider/products`
-
-### Etape 7: Liens Inter-Pages Admin
-
-**Fichiers:**
-- `src/pages/admin/AdminDashboard.tsx`
-- `src/pages/admin/AdminUsers.tsx`
-- `src/pages/admin/AdminOrders.tsx`
-
-Verifier la navigation entre les sections admin.
+Configurer les politiques d'acces pour chaque role:
+- Comptable: acces aux transactions, retraits, commandes (lecture)
+- Superviseur: acces aux commandes, profils clients/prestataires (lecture)
+- Moderateur: acces aux profils, produits, signalements (lecture/ecriture)
+- Support: acces aux tickets, profils utilisateurs (lecture/ecriture)
 
 ---
 
-## Details Techniques des Modifications
+## Phase 2: Mise a jour du systeme d'authentification
 
-### Modification 1: Auth.tsx - Redirection Intelligente
+### 2.1 Extension du hook `useAuth`
 
-```text
-// Imports a ajouter
-const { user, signUp, signIn, ..., userRole, loading } = useAuth();
+Ajouter les nouvelles methodes de verification:
+- `isAccountant()`
+- `isSupervisor()`
+- `isModerator()`
+- `isSupport()`
+- `isTeamMember()` - retourne vrai pour tout role d'equipe
 
-// Nouveau useEffect
-useEffect(() => {
-  if (!loading && user) {
-    // Si pas encore de role charge, attendre
-    if (userRole === null && !user.is_anonymous) {
-      return; // Le role sera charge par useAuth
-    }
-    
-    // Redirection selon le role ou statut anonyme
-    if (user.is_anonymous) {
-      navigate('/client');
-    } else if (userRole === 'super_admin' || userRole === 'admin') {
-      navigate('/admin');
-    } else if (userRole === 'provider') {
-      navigate('/provider');
-    } else {
-      navigate('/client');
-    }
-  }
-}, [user, loading, userRole, navigate]);
-```
+### 2.2 Extension du type TypeScript
 
-### Modification 2: Index.tsx - Navigation Contextuelle
+Mettre a jour le type `UserRole` dans `src/types/database.ts`:
 
 ```text
-// Section boutons pour utilisateur connecte
-{user && (
-  <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-    {/* Bouton vers le dashboard approprie */}
-    {isSuperAdmin() || isAdmin() ? (
-      <Link to="/admin">
-        <Button size="lg" className="text-lg gap-2">
-          <Shield className="h-5 w-5" />
-          Administration
-        </Button>
-      </Link>
-    ) : isProvider() ? (
-      <Link to="/provider">
-        <Button size="lg" className="text-lg gap-2">
-          <Store className="h-5 w-5" />
-          Mon espace prestataire
-        </Button>
-      </Link>
-    ) : (
-      <Link to="/client">
-        <Button size="lg" className="text-lg gap-2">
-          <User className="h-5 w-5" />
-          Mon espace
-        </Button>
-      </Link>
-    )}
-    
-    {/* Bouton catalogue toujours visible */}
-    <Link to="/client/catalog">
-      <Button variant="outline" size="lg" className="text-lg">
-        Decouvrir les offres
-      </Button>
-    </Link>
-  </div>
-)}
-```
-
-### Modification 3: ClientDashboard.tsx - Liens Produits
-
-```text
-// Dans la grille des produits populaires
-<Button 
-  size="sm"
-  onClick={() => navigate(`/client/product/${product.id}`)}
->
-  Reserver
-</Button>
+export type UserRole = 
+  | 'client' 
+  | 'provider' 
+  | 'admin' 
+  | 'super_admin'
+  | 'accountant'
+  | 'supervisor'
+  | 'moderator'
+  | 'support';
 ```
 
 ---
 
-## Fichiers a Modifier
+## Phase 3: Creation des interfaces
 
-| Fichier | Modifications |
-|---------|---------------|
-| `src/pages/Auth.tsx` | Redirection post-connexion intelligente |
-| `src/pages/Index.tsx` | Navigation contextuelle selon role |
-| `src/pages/client/ClientDashboard.tsx` | Liens vers detail produit |
-| `src/hooks/useAuth.tsx` | Aucune modification (deja complet) |
+### 3.1 Interface Comptable (`/accountant`)
+
+**Pages a creer:**
+
+1. **AccountantDashboard** (`/accountant`)
+   - Resume financier: revenus totaux, commissions, retraits en attente
+   - Graphiques: evolution des revenus, repartition par categorie
+   - Indicateurs cles (KPIs)
+
+2. **AccountantTransactions** (`/accountant/transactions`)
+   - Liste des paiements avec filtres (statut, periode, methode)
+   - Details de chaque transaction
+   - Export des donnees
+
+3. **AccountantWithdrawals** (`/accountant/withdrawals`)
+   - Demandes de retrait des prestataires
+   - Actions: approuver/rejeter avec justification
+   - Historique des retraits traites
+
+4. **AccountantReports** (`/accountant/reports`)
+   - Generation de rapports financiers
+   - Rapports par periode, par prestataire, par categorie
+   - Export PDF/Excel
+
+### 3.2 Interface Superviseur (`/supervisor`)
+
+**Pages a creer:**
+
+1. **SupervisorDashboard** (`/supervisor`)
+   - Vue d'ensemble des commandes du jour
+   - Statistiques: commandes par statut
+   - Alertes (commandes en retard, problemes)
+
+2. **SupervisorOrders** (`/supervisor/orders`)
+   - Liste complete des commandes avec tous les details
+   - Informations client: nom, telephone, lieu
+   - Informations prestataire: nom, telephone
+   - Statut et timeline de la commande
+   - Filtres avances (date, statut, lieu, prestataire)
+
+### 3.3 Interface Moderateur (`/moderator`)
+
+**Pages a creer:**
+
+1. **ModeratorDashboard** (`/moderator`)
+   - Statistiques: prestataires a verifier, signalements en attente
+   - Activite recente
+
+2. **ModeratorProviders** (`/moderator/providers`)
+   - Liste des prestataires avec statut de verification
+   - Actions: verifier profil, demander modifications
+   - Visualisation des documents
+
+3. **ModeratorProducts** (`/moderator/products`)
+   - Liste des produits a moderer
+   - Verification des photos et descriptions
+   - Actions: approuver, demander modification, supprimer
+
+4. **ModeratorReports** (`/moderator/reports`)
+   - Signalements des utilisateurs
+   - Actions: investiguer, resoudre, rejeter
+   - Historique des actions
+
+5. **ModeratorAccounts** (`/moderator/accounts`)
+   - Detection des comptes suspects
+   - Actions: suspendre, supprimer
+
+### 3.4 Interface Support Client (`/support`)
+
+**Pages a creer:**
+
+1. **SupportDashboard** (`/support`)
+   - Tickets ouverts et en cours
+   - Temps de reponse moyen
+   - Satisfaction client
+
+2. **SupportTickets** (`/support/tickets`)
+   - Liste des tickets avec priorite
+   - Filtres: statut, priorite, date
+   - Actions: prendre en charge, repondre, cloturer
+
+3. **SupportUsers** (`/support/users`)
+   - Recherche d'utilisateurs
+   - Aide a la creation de compte
+   - Historique des interactions
+
+4. **SupportFAQ** (`/support/faq`)
+   - Gestion des questions frequentes
+   - Templates de reponses
 
 ---
 
-## Tests de Verification
+## Phase 4: Composants partages
 
-Apres implementation, verifier les scenarios suivants:
+### 4.1 DashboardLayout
 
-1. **Connexion Admin/Super Admin**
-   - Se connecter avec huberson.okou@groupecerco.com
-   - Doit etre redirige vers `/admin`
-   - Le dashboard admin doit afficher les statistiques
+Mise a jour pour supporter les nouveaux roles:
+- Navigation specifique pour chaque role
+- Titres et icones appropries
+- Redirection vers le bon dashboard
 
-2. **Connexion Provider**
-   - Creer un compte provider
-   - Doit etre redirige vers `/provider`
-   - Peut ajouter des produits
+### 4.2 Nouveaux composants
 
-3. **Connexion Client**
-   - Creer un compte client
-   - Doit etre redirige vers `/client`
-   - Peut parcourir le catalogue et passer des commandes
-
-4. **Mode Invite**
-   - Cliquer sur "Continuer en tant qu'invite"
-   - Doit etre redirige vers `/client`
-   - Peut voir le catalogue mais pas reserver sans compte
-
-5. **Navigation depuis l'accueil**
-   - Utilisateur connecte voit son bouton d'espace personnel
-   - Les liens "Decouvrir les offres" fonctionnent
+- `TransactionCard` - Affichage des transactions
+- `WithdrawalRequest` - Demande de retrait
+- `ReportCard` - Carte de signalement
+- `TicketCard` - Carte de ticket support
+- `TicketChat` - Conversation de ticket
+- `AddTeamMemberDialog` - Modal d'ajout de membre
 
 ---
 
-## Resume des Corrections
+## Phase 5: Gestion des membres d'equipe
 
-1. **Redirection intelligente**: Les utilisateurs seront automatiquement diriges vers leur dashboard
-2. **Page d'accueil dynamique**: Affiche les bons liens selon le role
-3. **Boutons fonctionnels**: Tous les CTA sont relies aux bonnes pages
-4. **Interconnexion complete**: Navigation fluide entre toutes les sections
+### 5.1 Page d'administration des membres (`/admin/team`)
+
+- Liste des membres avec leur role
+- Ajout de nouveaux membres via email
+- Modification/suppression de roles
+- Invitation par email
+
+### 5.2 Processus d'ajout de membre
+
+1. Admin entre l'email et selectionne le role
+2. Systeme cree le compte ou assigne le role si compte existant
+3. Email d'invitation envoye (si nouveau compte)
+
+---
+
+## Phase 6: Mise a jour du routage
+
+### 6.1 Nouvelles routes dans App.tsx
+
+```text
+Routes Comptable:
+/accountant           -> AccountantDashboard
+/accountant/transactions -> AccountantTransactions
+/accountant/withdrawals  -> AccountantWithdrawals
+/accountant/reports      -> AccountantReports
+
+Routes Superviseur:
+/supervisor           -> SupervisorDashboard
+/supervisor/orders    -> SupervisorOrders
+
+Routes Moderateur:
+/moderator            -> ModeratorDashboard
+/moderator/providers  -> ModeratorProviders
+/moderator/products   -> ModeratorProducts
+/moderator/reports    -> ModeratorReports
+/moderator/accounts   -> ModeratorAccounts
+
+Routes Support:
+/support              -> SupportDashboard
+/support/tickets      -> SupportTickets
+/support/users        -> SupportUsers
+/support/faq          -> SupportFAQ
+
+Route Admin:
+/admin/team           -> AdminTeam
+```
+
+### 6.2 Redirection post-connexion
+
+Mise a jour dans `Auth.tsx` pour rediriger vers le bon dashboard selon le role.
+
+---
+
+## Structure des fichiers a creer
+
+```text
+src/pages/
+  accountant/
+    AccountantDashboard.tsx
+    AccountantTransactions.tsx
+    AccountantWithdrawals.tsx
+    AccountantReports.tsx
+  
+  supervisor/
+    SupervisorDashboard.tsx
+    SupervisorOrders.tsx
+  
+  moderator/
+    ModeratorDashboard.tsx
+    ModeratorProviders.tsx
+    ModeratorProducts.tsx
+    ModeratorReports.tsx
+    ModeratorAccounts.tsx
+  
+  support/
+    SupportDashboard.tsx
+    SupportTickets.tsx
+    SupportUsers.tsx
+    SupportFAQ.tsx
+  
+  admin/
+    AdminTeam.tsx (nouveau)
+
+src/components/
+  team/
+    AddTeamMemberDialog.tsx
+    TeamMemberCard.tsx
+  
+  accountant/
+    TransactionCard.tsx
+    WithdrawalRequest.tsx
+    FinancialChart.tsx
+  
+  moderator/
+    ReportCard.tsx
+    VerificationBadge.tsx
+  
+  support/
+    TicketCard.tsx
+    TicketChat.tsx
+    QuickReplyTemplates.tsx
+```
+
+---
+
+## Section technique
+
+### Migration SQL
+
+```text
+-- Ajout des nouveaux roles
+ALTER TYPE user_role ADD VALUE 'accountant';
+ALTER TYPE user_role ADD VALUE 'supervisor';
+ALTER TYPE user_role ADD VALUE 'moderator';
+ALTER TYPE user_role ADD VALUE 'support';
+
+-- Table transactions
+CREATE TABLE transactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id uuid REFERENCES orders(id),
+  type text NOT NULL CHECK (type IN ('payment', 'commission', 'withdrawal')),
+  amount numeric NOT NULL,
+  status text NOT NULL DEFAULT 'pending',
+  payment_method text,
+  provider_id uuid,
+  created_at timestamptz DEFAULT now(),
+  processed_at timestamptz,
+  processed_by uuid
+);
+
+-- Table withdrawals
+CREATE TABLE withdrawals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id uuid NOT NULL,
+  amount numeric NOT NULL,
+  status text NOT NULL DEFAULT 'pending',
+  payment_method text NOT NULL,
+  account_details jsonb,
+  requested_at timestamptz DEFAULT now(),
+  processed_at timestamptz,
+  processed_by uuid,
+  rejection_reason text
+);
+
+-- Table reports
+CREATE TABLE reports (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_id uuid NOT NULL,
+  reported_user_id uuid,
+  reported_product_id uuid,
+  type text NOT NULL,
+  description text,
+  status text NOT NULL DEFAULT 'pending',
+  created_at timestamptz DEFAULT now(),
+  resolved_at timestamptz,
+  resolved_by uuid
+);
+
+-- Table support_tickets
+CREATE TABLE support_tickets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  subject text NOT NULL,
+  description text,
+  status text NOT NULL DEFAULT 'open',
+  priority text DEFAULT 'medium',
+  assigned_to uuid,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Table support_messages
+CREATE TABLE support_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_id uuid REFERENCES support_tickets(id) ON DELETE CASCADE,
+  sender_id uuid NOT NULL,
+  message text NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Fonctions de verification de role
+CREATE FUNCTION is_accountant(_user_id uuid) RETURNS boolean AS $$
+  SELECT has_role(_user_id, 'accountant')
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+-- (idem pour supervisor, moderator, support)
+
+-- Politiques RLS pour chaque table et role
+```
+
+### Estimation de la complexite
+
+- Migrations de base de donnees: Haute
+- Mise a jour useAuth: Moyenne  
+- Interfaces Comptable: Haute (rapports, graphiques)
+- Interfaces Superviseur: Moyenne
+- Interfaces Moderateur: Haute (verification de contenu)
+- Interfaces Support: Haute (systeme de tickets)
+- Gestion des membres: Moyenne
+
+---
+
+## Ordre d'implementation recommande
+
+1. **Migration de base de donnees** - Extension de l'enum et creation des tables
+2. **Mise a jour useAuth et types** - Support des nouveaux roles
+3. **Mise a jour DashboardLayout** - Navigation dynamique
+4. **Interface Superviseur** - La plus simple, bonne pour valider l'architecture
+5. **Interface Comptable** - Fonctionnalites financieres
+6. **Interface Moderateur** - Verification de contenu
+7. **Interface Support** - Systeme de tickets
+8. **Page d'administration des membres** - Ajout de membres par l'admin
+
