@@ -37,7 +37,35 @@ const superAdminNav: NavItem[] = [
   { title: 'Prestataires', href: '/admin/providers', icon: Store },
   { title: 'Produits', href: '/admin/products', icon: Package },
   { title: 'Commandes', href: '/admin/orders', icon: ShoppingCart },
+  { title: 'Équipe', href: '/admin/team', icon: Users },
   { title: 'Paramètres', href: '/admin/settings', icon: Settings },
+];
+
+const accountantNav: NavItem[] = [
+  { title: 'Tableau de bord', href: '/accountant', icon: LayoutDashboard },
+  { title: 'Transactions', href: '/accountant/transactions', icon: ShoppingCart },
+  { title: 'Retraits', href: '/accountant/withdrawals', icon: Package },
+  { title: 'Rapports', href: '/accountant/reports', icon: Package },
+];
+
+const supervisorNav: NavItem[] = [
+  { title: 'Tableau de bord', href: '/supervisor', icon: LayoutDashboard },
+  { title: 'Commandes', href: '/supervisor/orders', icon: ShoppingCart },
+];
+
+const moderatorNav: NavItem[] = [
+  { title: 'Tableau de bord', href: '/moderator', icon: LayoutDashboard },
+  { title: 'Produits', href: '/moderator/products', icon: Package },
+  { title: 'Signalements', href: '/moderator/reports', icon: Shield },
+  { title: 'Prestataires', href: '/moderator/providers', icon: Store },
+  { title: 'Comptes', href: '/moderator/accounts', icon: Users },
+];
+
+const supportNav: NavItem[] = [
+  { title: 'Tableau de bord', href: '/support', icon: LayoutDashboard },
+  { title: 'Tickets', href: '/support/tickets', icon: Package },
+  { title: 'Utilisateurs', href: '/support/users', icon: Users },
+  { title: 'FAQ', href: '/support/faq', icon: Settings },
 ];
 
 const providerNav: NavItem[] = [
@@ -56,12 +84,16 @@ const clientNav: NavItem[] = [
 ];
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const { isSuperAdmin, isAdmin, isProvider, signOut } = useAuth();
+  const { isSuperAdmin, isAdmin, isProvider, isAccountant, isSupervisor, isModerator, isSupport, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isSuperAdminOrAdmin = isSuperAdmin() || isAdmin();
+  const isAccountantUser = isAccountant();
+  const isSupervisorUser = isSupervisor();
+  const isModeratorUser = isModerator();
+  const isSupportUser = isSupport();
   const isProviderUser = isProvider();
   
   let navItems: NavItem[] = clientNav;
@@ -72,6 +104,22 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     navItems = superAdminNav;
     dashboardTitle = 'Administration';
     DashboardIcon = Shield;
+  } else if (isAccountantUser) {
+    navItems = accountantNav;
+    dashboardTitle = 'Comptabilité';
+    DashboardIcon = Package;
+  } else if (isSupervisorUser) {
+    navItems = supervisorNav;
+    dashboardTitle = 'Supervision';
+    DashboardIcon = Shield;
+  } else if (isModeratorUser) {
+    navItems = moderatorNav;
+    dashboardTitle = 'Modération';
+    DashboardIcon = Shield;
+  } else if (isSupportUser) {
+    navItems = supportNav;
+    dashboardTitle = 'Support';
+    DashboardIcon = Users;
   } else if (isProviderUser) {
     navItems = providerNav;
     dashboardTitle = 'Prestataire';
