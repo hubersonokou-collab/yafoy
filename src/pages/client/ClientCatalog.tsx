@@ -44,6 +44,42 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useVoice } from '@/hooks/useVoice';
 
+// Category to event types mapping
+const CATEGORY_EVENTS: Record<string, { events: string[], description: string }> = {
+  'Décoration': {
+    events: ['Mariage', 'Anniversaire', 'Baptême', 'Communion', 'Fiançailles'],
+    description: 'Idéal pour embellir vos cérémonies'
+  },
+  'Mobilier': {
+    events: ['Mariage', 'Anniversaire', 'Baptême', 'Communion', 'Entreprise', 'Fiançailles'],
+    description: 'Tables, chaises et accessoires pour tous vos événements'
+  },
+  'Sonorisation': {
+    events: ['Mariage', 'Anniversaire', 'Entreprise'],
+    description: 'Animation musicale pour vos fêtes'
+  },
+  'Éclairage': {
+    events: ['Mariage', 'Anniversaire', 'Entreprise'],
+    description: 'Créez une ambiance unique'
+  },
+  'Vaisselle': {
+    events: ['Mariage', 'Anniversaire', 'Baptême', 'Communion', 'Entreprise', 'Fiançailles'],
+    description: 'Service de table élégant'
+  },
+  'Transport': {
+    events: ['Mariage', 'Entreprise'],
+    description: 'Déplacement des invités et du matériel'
+  },
+  'Photographie': {
+    events: ['Mariage', 'Anniversaire', 'Baptême', 'Communion', 'Fiançailles'],
+    description: 'Immortalisez vos moments précieux'
+  },
+  'Traiteur': {
+    events: ['Mariage', 'Anniversaire', 'Baptême', 'Communion', 'Entreprise', 'Fiançailles'],
+    description: 'Restauration de qualité'
+  },
+};
+
 // Event types with icons and suitable categories
 const EVENT_TYPES = [
   { 
@@ -109,6 +145,7 @@ const ClientCatalog = () => {
   const [categoryFilter, setCategoryFilter] = useState(searchParams.get('category') || 'all');
   const [eventFilter, setEventFilter] = useState('all');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedCategoryForEvents, setSelectedCategoryForEvents] = useState<string | null>(null);
   const [orderForm, setOrderForm] = useState({
     event_date: '',
     event_location: '',
@@ -386,6 +423,91 @@ const ClientCatalog = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Clickable Categories with Event Proposals */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Filter className="h-4 w-4" />
+            <span>Cliquez sur une catégorie pour voir les événements proposés</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            {categories.map((cat) => {
+              const categoryEvents = CATEGORY_EVENTS[cat.name];
+              const isSelected = selectedCategoryForEvents === cat.name;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setSelectedCategoryForEvents(isSelected ? null : cat.name);
+                    setCategoryFilter(cat.id);
+                  }}
+                  className={`
+                    flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all
+                    hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary
+                    ${isSelected 
+                      ? 'border-primary bg-primary/10 shadow-lg' 
+                      : 'border-border hover:border-primary/50 bg-card'
+                    }
+                  `}
+                >
+                  <Package className="h-6 w-6 text-primary" />
+                  <span className={`text-sm font-medium text-center ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                    {cat.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          
+          {/* Event Proposals Popup */}
+          {selectedCategoryForEvents && CATEGORY_EVENTS[selectedCategoryForEvents] && (
+            <Card className="border-2 border-primary/30 bg-primary/5 animate-in slide-in-from-top-2 duration-300">
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-lg text-primary">
+                      {selectedCategoryForEvents}
+                    </h3>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setSelectedCategoryForEvents(null)}
+                    >
+                      Fermer
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {CATEGORY_EVENTS[selectedCategoryForEvents].description}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="text-sm font-medium text-foreground">Événements proposés:</span>
+                    {CATEGORY_EVENTS[selectedCategoryForEvents].events.map((event) => {
+                      const eventType = EVENT_TYPES.find(e => e.label === event);
+                      const Icon = eventType?.icon || Sparkles;
+                      return (
+                        <Badge 
+                          key={event} 
+                          variant="secondary" 
+                          className={`flex items-center gap-1 cursor-pointer hover:scale-105 transition-transform ${eventType?.color || ''}`}
+                          onClick={() => {
+                            const matchedEvent = EVENT_TYPES.find(e => e.label === event);
+                            if (matchedEvent) {
+                              setEventFilter(matchedEvent.id);
+                              setSelectedCategoryForEvents(null);
+                            }
+                          }}
+                        >
+                          <Icon className="h-3 w-3" />
+                          {event}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {/* Products by Category Sections */}
         {filteredProducts.length === 0 ? (
