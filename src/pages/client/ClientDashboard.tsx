@@ -154,38 +154,38 @@ const ClientDashboard = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Welcome Section with Search */}
-        <div className="rounded-2xl bg-gradient-to-r from-primary to-primary/80 p-6 text-primary-foreground">
-          <h1 className="text-2xl font-bold">Bienvenue sur YAFOY</h1>
-          <p className="mt-1 opacity-90">Trouvez tout pour votre cérémonie</p>
+        {/* Welcome Section with Search - RESPONSIVE */}
+        <div className="rounded-2xl bg-gradient-to-r from-primary to-primary/80 p-4 sm:p-6 text-primary-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold">Bienvenue sur YAFOY</h1>
+          <p className="mt-1 opacity-90 text-sm sm:text-base">Trouvez tout pour votre cérémonie</p>
           
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="mt-4">
-            <div className="relative max-w-md">
+            <div className="relative w-full sm:max-w-md">
               <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un équipement..."
+                placeholder="Rechercher..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-12 pl-10 bg-white text-foreground rounded-full"
+                className="h-11 sm:h-12 pl-10 bg-white text-foreground rounded-full text-sm sm:text-base"
               />
             </div>
           </form>
         </div>
 
-        {/* Quick Planning Section - NEW! */}
+        {/* Quick Planning Section - RESPONSIVE */}
         <Card className="overflow-hidden border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-background">
           <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-3 text-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <CardTitle className="flex items-center gap-3 text-lg sm:text-xl">
                 <div className="p-2 bg-primary/10 rounded-full">
-                  <Sparkles className="h-6 w-6 text-primary" />
+                  <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                 </div>
                 Planifier un événement
               </CardTitle>
               <Button 
                 variant="default" 
-                className="rounded-full"
+                className="rounded-full w-full sm:w-auto"
                 onClick={() => navigate('/client/event-planner')}
               >
                 <Calendar className="h-4 w-4 mr-2" />
@@ -197,20 +197,20 @@ const ClientDashboard = () => {
               Quel type d'événement préparez-vous ? Cliquez pour démarrer
             </p>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+          <CardContent className="px-3 sm:px-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
               {EVENT_TYPES.map((event) => {
                 const Icon = event.icon;
                 return (
                   <button
                     key={event.id}
                     onClick={() => navigate(`/client/event-planner?event=${event.id}`)}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-primary/5 transition-all group"
+                    className="flex flex-col items-center gap-2 p-3 sm:p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-primary/5 transition-all group"
                   >
-                    <div className={`p-3 rounded-full ${event.color} group-hover:scale-110 transition-transform`}>
-                      <Icon className="h-6 w-6" />
+                    <div className={`p-2 sm:p-3 rounded-full ${event.color} group-hover:scale-110 transition-transform`}>
+                      <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
-                    <span className="text-xs font-medium text-center">{event.label}</span>
+                    <span className="text-xs font-medium text-center leading-tight">{event.label}</span>
                   </button>
                 );
               })}
@@ -218,24 +218,24 @@ const ClientDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* AI Assistant Quick Access */}
+        {/* AI Assistant Quick Access - RESPONSIVE */}
         <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between gap-4">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-primary rounded-full">
-                  <MessageSquare className="h-5 w-5 text-primary-foreground" />
+                <div className="p-2 sm:p-3 bg-primary rounded-full shrink-0">
+                  <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
                 </div>
-                <div>
-                  <h3 className="font-semibold">Besoin d'aide ?</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Notre assistant IA vous guide dans vos choix
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-sm sm:text-base">Besoin d'aide ?</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                    Notre assistant IA vous guide
                   </p>
                 </div>
               </div>
               <Button 
                 variant="outline" 
-                className="rounded-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                className="rounded-full border-primary text-primary hover:bg-primary hover:text-primary-foreground w-full sm:w-auto shrink-0"
                 onClick={() => setShowChat(!showChat)}
               >
                 {showChat ? 'Fermer' : 'Discuter'}
@@ -244,7 +244,7 @@ const ClientDashboard = () => {
             
             {/* Inline Chat */}
             {showChat && (
-              <div className="mt-4 h-[400px]">
+              <div className="mt-4 h-[350px] sm:h-[400px]">
                 <SimplifiedAIChat 
                   standalone={false}
                   onReserve={(productIds) => {
@@ -363,39 +363,39 @@ const ClientDashboard = () => {
           )}
         </div>
 
-        {/* Recent Orders */}
+        {/* Recent Orders - RESPONSIVE */}
         {recentOrders.length > 0 && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Mes dernières commandes</CardTitle>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg">Mes dernières commandes</CardTitle>
               <Link to="/client/orders">
-                <Button variant="outline" size="sm" className="rounded-full">
+                <Button variant="outline" size="sm" className="rounded-full w-full sm:w-auto">
                   Voir tout
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               </Link>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 sm:p-6 pt-0">
               <div className="space-y-3">
                 {recentOrders.map((order) => (
                   <div
                     key={order.id}
-                    className="flex items-center justify-between rounded-xl border p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border p-3 sm:p-4 hover:bg-muted/50 transition-colors cursor-pointer gap-3"
                     onClick={() => navigate('/client/orders')}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                        <ShoppingCart className="h-5 w-5 text-primary" />
+                      <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                        <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                       </div>
-                      <div>
-                        <p className="font-medium">Commande #{order.id.slice(0, 8)}</p>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm sm:text-base truncate">Commande #{order.id.slice(0, 8)}</p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(order.created_at).toLocaleDateString('fr-FR')}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium">
+                    <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 pl-12 sm:pl-0">
+                      <span className="font-medium text-sm sm:text-base">
                         {Number(order.total_amount).toLocaleString()} FCFA
                       </span>
                       {getStatusBadge(order.status)}
