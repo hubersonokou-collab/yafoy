@@ -109,9 +109,9 @@ const AdminTransactions = () => {
 
   // Calculate stats
   const stats = useMemo(() => {
-    const successfulTransactions = transactions.filter((t) => t.status === 'success');
+    const successfulTransactions = transactions.filter((t) => t.status === 'success' || t.status === 'completed');
     const todayTransactions = transactions.filter((t) => isToday(parseISO(t.created_at)));
-    const todaySuccessful = todayTransactions.filter((t) => t.status === 'success');
+    const todaySuccessful = todayTransactions.filter((t) => t.status === 'success' || t.status === 'completed');
 
     return {
       totalRevenue: successfulTransactions.reduce((sum, t) => sum + Number(t.amount), 0),
@@ -129,10 +129,10 @@ const AdminTransactions = () => {
     };
   }, [transactions]);
 
-  // Revenue data for chart (last 7 days)
+  // Revenue data for chart (last 30 days)
   const revenueData = useMemo(() => {
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = subDays(new Date(), 6 - i);
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const date = subDays(new Date(), 29 - i);
       return {
         date: format(date, 'dd/MM', { locale: fr }),
         fullDate: format(date, 'yyyy-MM-dd'),
@@ -141,16 +141,16 @@ const AdminTransactions = () => {
     });
 
     transactions
-      .filter((t) => t.status === 'success')
+      .filter((t) => t.status === 'success' || t.status === 'completed')
       .forEach((t) => {
         const txDate = format(parseISO(t.created_at), 'yyyy-MM-dd');
-        const dayData = last7Days.find((d) => d.fullDate === txDate);
+        const dayData = last30Days.find((d) => d.fullDate === txDate);
         if (dayData) {
           dayData.amount += Number(t.amount);
         }
       });
 
-    return last7Days.map(({ date, amount }) => ({ date, amount }));
+    return last30Days.map(({ date, amount }) => ({ date, amount }));
   }, [transactions]);
 
   // Payment method data for pie chart
@@ -158,7 +158,7 @@ const AdminTransactions = () => {
     const methodCounts: Record<string, number> = {};
     
     transactions
-      .filter((t) => t.status === 'success' && t.payment_method)
+      .filter((t) => (t.status === 'success' || t.status === 'completed') && t.payment_method)
       .forEach((t) => {
         const method = t.payment_method || 'unknown';
         methodCounts[method] = (methodCounts[method] || 0) + 1;

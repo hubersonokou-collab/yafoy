@@ -94,7 +94,7 @@ export const TransactionStats = ({
         {/* Revenue Chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Évolution des revenus</CardTitle>
+            <CardTitle className="text-base">Évolution des revenus (30 jours)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[250px]">
@@ -110,9 +110,10 @@ export const TransactionStats = ({
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis 
                       dataKey="date" 
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
                       tickLine={false}
                       axisLine={false}
+                      interval={4}
                     />
                     <YAxis 
                       tick={{ fontSize: 12 }}

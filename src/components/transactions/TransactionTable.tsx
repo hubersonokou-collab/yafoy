@@ -31,8 +31,10 @@ export const TransactionTable = ({ transactions }: TransactionTableProps) => {
   const getStatusBadge = (status: string) => {
     const config: Record<string, { label: string; className: string }> = {
       success: { label: 'Réussi', className: 'bg-success text-success-foreground' },
+      completed: { label: 'Réussi', className: 'bg-success text-success-foreground' },
       pending: { label: 'En attente', className: 'bg-warning text-warning-foreground' },
       failed: { label: 'Échoué', className: 'bg-destructive text-destructive-foreground' },
+      cancelled: { label: 'Annulé', className: 'bg-muted text-muted-foreground' },
     };
     const { label, className } = config[status] || { label: status, className: 'bg-muted' };
     return <Badge className={className}>{label}</Badge>;
