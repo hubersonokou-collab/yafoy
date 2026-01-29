@@ -5,12 +5,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EventPlannerChat } from '@/components/event-planner';
 import { AccessibleEventPlanner } from '@/components/event-planner/AccessibleEventPlanner';
+import { InvoiceDisplay } from '@/components/event-planner/InvoiceDisplay';
 import { ChatRoomView } from '@/components/chat';
 import { ProductCard } from '@/components/products/ProductCard';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Loader2, 
@@ -28,7 +31,12 @@ import {
   Building2,
   PartyPopper,
   Package,
-  ShoppingCart
+  ShoppingCart,
+  Edit3,
+  Receipt,
+  CreditCard,
+  CheckCircle2,
+  X
 } from 'lucide-react';
 
 interface EventFormData {
@@ -53,6 +61,8 @@ interface RecommendedProduct {
   category_name?: string;
   category_id: string | null;
   provider_id: string;
+  quantity?: number;
+  rental_days?: number;
 }
 
 const EVENT_TYPE_ICONS: Record<string, React.ElementType> = {
@@ -91,15 +101,18 @@ const ClientEventPlanner = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [step, setStep] = useState<'form' | 'recommendations' | 'chat' | 'room'>('form');
+  const [step, setStep] = useState<'form' | 'recommendations' | 'invoice' | 'chat' | 'room'>('form');
   const [eventData, setEventData] = useState<EventFormData | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [eventPlanningId, setEventPlanningId] = useState<string | null>(null);
   const [chatRoomId, setChatRoomId] = useState<string | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [participants, setParticipants] = useState<any[]>([]);
   const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [rentalDays, setRentalDays] = useState(1);
+  const [isEditingSelection, setIsEditingSelection] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -207,6 +220,98 @@ const ClientEventPlanner = () => {
     );
   };
 
+  const handleValidateRecommendations = () => {
+    if (selectedProductIds.length === 0) {
+      toast({
+        title: 'Sélection requise',
+        description: 'Veuillez sélectionner au moins un produit',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setStep('invoice');
+  };
+
+  const handleCreateGlobalOrder = async () => {
+    if (!user || !eventPlanningId || selectedProductIds.length === 0) return;
+
+    setIsCreatingOrder(true);
+    try {
+      const selectedProducts = recommendedProducts.filter(p => selectedProductIds.includes(p.id));
+      
+      // Group products by provider
+      const productsByProvider = selectedProducts.reduce((acc, product) => {
+        if (!acc[product.provider_id]) acc[product.provider_id] = [];
+        acc[product.provider_id].push(product);
+        return acc;
+      }, {} as Record<string, RecommendedProduct[]>);
+
+      // Create an order for each provider
+      for (const [providerId, products] of Object.entries(productsByProvider)) {
+        const subtotal = products.reduce((sum, p) => sum + (p.price_per_day * rentalDays * (p.quantity || 1)), 0);
+        
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            client_id: user.id,
+            provider_id: providerId,
+            status: 'pending',
+            total_amount: subtotal,
+            deposit_paid: 0,
+            event_date: eventData?.eventDate || null,
+            event_location: eventData?.eventLocation || null,
+            notes: `Commande groupée - ${EVENT_TYPE_LABELS[eventData?.eventType || 'autre']}${eventData?.eventName ? ` - ${eventData.eventName}` : ''}`,
+          })
+          .select()
+          .single();
+
+        if (orderError) throw orderError;
+
+        // Create order items
+        for (const product of products) {
+          const { error: itemError } = await supabase
+            .from('order_items')
+            .insert({
+              order_id: order.id,
+              product_id: product.id,
+              quantity: product.quantity || 1,
+              price_per_day: product.price_per_day,
+              rental_days: rentalDays,
+              subtotal: product.price_per_day * rentalDays * (product.quantity || 1),
+            });
+
+          if (itemError) throw itemError;
+        }
+      }
+
+      // Update event planning status
+      await supabase
+        .from('event_planning_requests')
+        .update({
+          ai_recommendations: selectedProductIds,
+          status: 'confirmed',
+        })
+        .eq('id', eventPlanningId);
+
+      toast({
+        title: 'Commandes créées',
+        description: `${Object.keys(productsByProvider).length} commande(s) envoyée(s) aux prestataires`,
+        className: 'bg-success text-success-foreground',
+      });
+
+      navigate('/client/orders');
+    } catch (error) {
+      console.error('Error creating orders:', error);
+      toast({
+        title: 'Erreur',
+        description: "Impossible de créer les commandes",
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCreatingOrder(false);
+    }
+  };
+
   const handleCreateChatRoom = async () => {
     if (!user || !eventPlanningId || selectedProductIds.length === 0) return;
 
@@ -309,6 +414,16 @@ const ClientEventPlanner = () => {
     }
   };
 
+  const getSelectedProductsWithDetails = () => {
+    return recommendedProducts
+      .filter(p => selectedProductIds.includes(p.id))
+      .map(p => ({
+        ...p,
+        rental_days: rentalDays,
+        quantity: p.quantity || 1,
+      }));
+  };
+
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -324,13 +439,14 @@ const ClientEventPlanner = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          {step !== 'form' && (
+        {step !== 'form' && (
             <Button
               variant="ghost"
               size="icon"
               className="h-12 w-12 rounded-full"
               onClick={() => {
-                if (step === 'room') setStep('recommendations');
+                if (step === 'room') setStep('invoice');
+                else if (step === 'invoice') setStep('recommendations');
                 else if (step === 'chat') setStep('recommendations');
                 else if (step === 'recommendations') setStep('form');
               }}
@@ -351,6 +467,12 @@ const ClientEventPlanner = () => {
                 <>
                   <ShoppingCart className="h-8 w-8 text-primary" />
                   Recommandations
+                </>
+              )}
+              {step === 'invoice' && (
+                <>
+                  <Receipt className="h-8 w-8 text-primary" />
+                  Facture & Commande
                 </>
               )}
               {step === 'chat' && (
@@ -497,20 +619,115 @@ const ClientEventPlanner = () => {
               {selectedProductIds.length > 0 && (
                 <Button 
                   size="lg" 
-                  className="flex-1 h-14"
-                  onClick={handleCreateChatRoom} 
-                  disabled={isCreatingRoom}
+                  className="flex-1 h-14 bg-primary"
+                  onClick={handleValidateRecommendations}
                 >
-                  {isCreatingRoom ? (
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  ) : (
-                    <>
-                      <Check className="mr-2 h-5 w-5" />
-                      Contacter {selectedProductIds.length} prestataire(s)
-                    </>
-                  )}
+                  <CheckCircle2 className="mr-2 h-5 w-5" />
+                  Valider la sélection ({selectedProductIds.length})
                 </Button>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Invoice Step */}
+        {step === 'invoice' && eventData && (
+          <div className="space-y-6">
+            {/* Selection Summary */}
+            <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                      <CheckCircle2 className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-green-800 dark:text-green-200">
+                        {selectedProductIds.length} produit(s) sélectionné(s)
+                      </h2>
+                      <p className="text-sm text-green-600 dark:text-green-400">
+                        Votre sélection est prête pour la commande
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setIsEditingSelection(true);
+                      setStep('recommendations');
+                    }}
+                    className="border-green-300 text-green-700 hover:bg-green-100 dark:border-green-700 dark:text-green-400"
+                  >
+                    <Edit3 className="mr-2 h-4 w-4" />
+                    Modifier
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Rental Days Setting */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  Durée de location
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <Label htmlFor="rental-days" className="whitespace-nowrap">Nombre de jours :</Label>
+                  <Input
+                    id="rental-days"
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={rentalDays}
+                    onChange={(e) => setRentalDays(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-24"
+                  />
+                  <span className="text-muted-foreground">jour(s)</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Invoice Display */}
+            <InvoiceDisplay
+              eventData={eventData}
+              selectedProducts={getSelectedProductsWithDetails()}
+              rentalDays={rentalDays}
+            />
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="flex-1 h-14"
+                onClick={handleCreateChatRoom}
+                disabled={isCreatingRoom}
+              >
+                {isCreatingRoom ? (
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                ) : (
+                  <MessageSquare className="mr-2 h-5 w-5" />
+                )}
+                Discuter avec les prestataires
+              </Button>
+              
+              <Button 
+                size="lg" 
+                className="flex-1 h-14 bg-green-600 hover:bg-green-700"
+                onClick={handleCreateGlobalOrder}
+                disabled={isCreatingOrder}
+              >
+                {isCreatingOrder ? (
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                ) : (
+                  <CreditCard className="mr-2 h-5 w-5" />
+                )}
+                Commander tout
+              </Button>
             </div>
           </div>
         )}

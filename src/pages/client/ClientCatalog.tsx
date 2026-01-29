@@ -131,6 +131,13 @@ const EVENT_TYPES = [
     color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
     categories: ['decoration', 'mobilier', 'vaisselle', 'photographie', 'traiteur']
   },
+  { 
+    id: 'autre', 
+    label: 'Autre', 
+    icon: HelpCircle,
+    color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    categories: ['decoration', 'mobilier', 'sonorisation', 'eclairage', 'vaisselle', 'photographie', 'traiteur', 'transport']
+  },
 ];
 
 const ClientCatalog = () => {
@@ -146,6 +153,8 @@ const ClientCatalog = () => {
   const [eventFilter, setEventFilter] = useState('all');
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [selectedCategoryForEvents, setSelectedCategoryForEvents] = useState<string | null>(null);
+  const [showCustomNeedsDialog, setShowCustomNeedsDialog] = useState(false);
+  const [customNeeds, setCustomNeeds] = useState('');
   const [orderForm, setOrderForm] = useState({
     event_date: '',
     event_location: '',
@@ -351,7 +360,12 @@ const ClientCatalog = () => {
                 return (
                   <button
                     key={event.id}
-                    onClick={() => setEventFilter(event.id)}
+                    onClick={() => {
+                      if (event.id === 'autre') {
+                        setShowCustomNeedsDialog(true);
+                      }
+                      setEventFilter(event.id);
+                    }}
                     className={`
                       flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all
                       min-w-[100px] hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary
@@ -375,6 +389,30 @@ const ClientCatalog = () => {
             </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
+          
+          {/* Custom needs display when "Autre" is selected */}
+          {eventFilter === 'autre' && customNeeds && (
+            <Card className="mt-3 border-primary/30 bg-primary/5 animate-in slide-in-from-top-2">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <HelpCircle className="h-5 w-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Vos besoins personnalisés:</p>
+                      <p className="text-sm text-muted-foreground mt-1">{customNeeds}</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowCustomNeedsDialog(true)}
+                  >
+                    Modifier
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Search and Category Filter */}
@@ -696,6 +734,61 @@ const ClientCatalog = () => {
                 </Button>
               </form>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Custom Needs Dialog for "Autre" event type */}
+        <Dialog open={showCustomNeedsDialog} onOpenChange={setShowCustomNeedsDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <HelpCircle className="h-5 w-5 text-primary" />
+                Décrivez votre événement
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Décrivez votre événement et ce dont vous avez besoin. Nous afficherons tous les produits disponibles.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="custom-needs">Vos besoins</Label>
+                <Textarea
+                  id="custom-needs"
+                  value={customNeeds}
+                  onChange={(e) => setCustomNeeds(e.target.value)}
+                  placeholder="Ex: Je prépare une cérémonie traditionnelle et j'ai besoin de chaises, tables, et décoration..."
+                  rows={4}
+                  className="resize-none"
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    setShowCustomNeedsDialog(false);
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button 
+                  className="flex-1"
+                  onClick={() => {
+                    setShowCustomNeedsDialog(false);
+                    // Apply search with custom needs as filter
+                    if (customNeeds) {
+                      setSearchQuery(customNeeds.split(' ').slice(0, 3).join(' '));
+                    }
+                    toast({
+                      title: 'Besoins enregistrés',
+                      description: 'Tous les produits sont affichés. Utilisez la recherche pour affiner.',
+                    });
+                  }}
+                >
+                  Confirmer
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
