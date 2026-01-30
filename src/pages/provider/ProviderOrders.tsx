@@ -45,14 +45,44 @@ const ProviderOrders = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      // Fetch orders with order items and products
+      const { data: ordersData, error } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          order_items:order_items(
+            id,
+            product_id,
+            quantity,
+            price_per_day,
+            rental_days,
+            subtotal,
+            product:products(name, images)
+          )
+        `)
         .eq('provider_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setOrders(data || []);
+
+      // Fetch client profiles for each order
+      const clientIds = [...new Set((ordersData || []).map(o => o.client_id))];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, phone')
+        .in('user_id', clientIds);
+
+      const profilesMap = new Map(
+        (profilesData || []).map(p => [p.user_id, { full_name: p.full_name, phone: p.phone }])
+      );
+
+      const ordersWithDetails = (ordersData || []).map(order => ({
+        ...order,
+        items: order.order_items,
+        client: profilesMap.get(order.client_id) || null,
+      }));
+
+      setOrders(ordersWithDetails);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -150,8 +180,9 @@ const ProviderOrders = () => {
             {filteredOrders.map((order) => (
               <OrderCard
                 key={order.id}
-                order={order as { id: string; status: OrderStatus; total_amount: number; deposit_paid?: number | null; event_date?: string | null; event_location?: string | null; notes?: string | null; created_at: string }}
+                order={order as any}
                 showTimeline
+                showItems
                 actions={
                   <OrderActions
                     orderId={order.id}

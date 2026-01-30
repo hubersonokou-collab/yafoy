@@ -60,6 +60,11 @@ export const TransactionTable = ({ transactions }: TransactionTableProps) => {
     return types[type] || type;
   };
 
+  // Calculate commission (5% of amount)
+  const getCommission = (amount: number) => {
+    return Math.round(amount * 0.05);
+  };
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -70,6 +75,7 @@ export const TransactionTable = ({ transactions }: TransactionTableProps) => {
             <TableHead>Type</TableHead>
             <TableHead>Méthode</TableHead>
             <TableHead>Montant</TableHead>
+            <TableHead className="text-emerald-600">Bénéfice (5%)</TableHead>
             <TableHead>Statut</TableHead>
             <TableHead>Date</TableHead>
           </TableRow>
@@ -77,30 +83,38 @@ export const TransactionTable = ({ transactions }: TransactionTableProps) => {
         <TableBody>
           {transactions.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+              <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                 Aucune transaction trouvée
               </TableCell>
             </TableRow>
           ) : (
-            transactions.map((transaction) => (
-              <TableRow key={transaction.id}>
-                <TableCell className="font-mono text-sm">
-                  {transaction.reference?.slice(0, 16) || transaction.id.slice(0, 8)}
-                </TableCell>
-                <TableCell className="max-w-[200px] truncate">
-                  {transaction.description || '-'}
-                </TableCell>
-                <TableCell>{getTypeLabel(transaction.type)}</TableCell>
-                <TableCell>{getPaymentMethodLabel(transaction.payment_method)}</TableCell>
-                <TableCell className="font-medium">
-                  {Number(transaction.amount).toLocaleString()} FCFA
-                </TableCell>
-                <TableCell>{getStatusBadge(transaction.status)}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {format(new Date(transaction.created_at), 'dd/MM/yy HH:mm', { locale: fr })}
-                </TableCell>
-              </TableRow>
-            ))
+            transactions.map((transaction) => {
+              const commission = getCommission(Number(transaction.amount));
+              const isSuccessful = transaction.status === 'success' || transaction.status === 'completed';
+              
+              return (
+                <TableRow key={transaction.id}>
+                  <TableCell className="font-mono text-sm">
+                    {transaction.reference?.slice(0, 16) || transaction.id.slice(0, 8)}
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate">
+                    {transaction.description || '-'}
+                  </TableCell>
+                  <TableCell>{getTypeLabel(transaction.type)}</TableCell>
+                  <TableCell>{getPaymentMethodLabel(transaction.payment_method)}</TableCell>
+                  <TableCell className="font-medium">
+                    {Number(transaction.amount).toLocaleString()} FCFA
+                  </TableCell>
+                  <TableCell className={`font-semibold ${isSuccessful ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                    {isSuccessful ? `+${commission.toLocaleString()} FCFA` : '-'}
+                  </TableCell>
+                  <TableCell>{getStatusBadge(transaction.status)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {format(new Date(transaction.created_at), 'dd/MM/yy HH:mm', { locale: fr })}
+                  </TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
