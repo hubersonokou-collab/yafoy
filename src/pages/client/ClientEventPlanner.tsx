@@ -7,7 +7,7 @@ import { EventPlannerChat } from '@/components/event-planner';
 import { AccessibleEventPlanner } from '@/components/event-planner/AccessibleEventPlanner';
 import { EditableInvoice } from '@/components/event-planner/EditableInvoice';
 import { GlobalPaymentDialog } from '@/components/payment/GlobalPaymentDialog';
-import { ChatRoomView } from '@/components/chat';
+import { ProviderTabbedChat } from '@/components/chat';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -731,8 +731,8 @@ const ClientEventPlanner = () => {
         )}
 
         {step === 'room' && chatRoomId && (
-          <div className="h-[600px] rounded-xl overflow-hidden border">
-            <ChatRoomView roomId={chatRoomId} participants={participants} />
+          <div className="h-[650px] rounded-xl overflow-hidden border">
+            <ProviderTabbedChat roomId={chatRoomId} participants={participants} />
           </div>
         )}
 
