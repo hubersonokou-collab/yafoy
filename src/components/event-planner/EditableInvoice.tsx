@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ProviderRating } from '@/components/reviews';
 import { 
   Receipt, 
   Calendar, 
@@ -175,7 +176,7 @@ export const EditableInvoice = ({
           {Object.entries(productsByProvider).map(([providerId, providerData], providerIndex) => (
             <Card key={providerId} className="border bg-card">
               <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                       <Store className="h-4 w-4 text-primary" />
@@ -187,9 +188,12 @@ export const EditableInvoice = ({
                       </p>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="font-mono">
-                    {providerData.subtotal.toLocaleString()} FCFA
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge variant="secondary" className="font-mono">
+                      {providerData.subtotal.toLocaleString()} FCFA
+                    </Badge>
+                    <ProviderRating providerId={providerId} variant="badge" size="sm" />
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-2">

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ProductCard } from '@/components/products/ProductCard';
-import { ReviewList, StarRating } from '@/components/reviews';
+import { ReviewList, ProviderRating } from '@/components/reviews';
 import {
   Loader2,
   User,
@@ -182,16 +182,9 @@ const ProviderPublicProfile = () => {
                     </p>
                   )}
 
-                  {/* Stats */}
+                  {/* Stats with improved rating display */}
                   <div className="flex flex-wrap gap-6 mt-4 justify-center sm:justify-start">
-                    {stats.averageRating > 0 && (
-                      <div className="flex items-center gap-2">
-                        <StarRating rating={Math.round(stats.averageRating)} size="sm" />
-                        <span className="text-sm text-muted-foreground">
-                          ({stats.reviewCount} avis)
-                        </span>
-                      </div>
-                    )}
+                    <ProviderRating providerId={id!} size="md" showCount />
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Package className="h-4 w-4" />
                       <span>{stats.productCount} produits</span>

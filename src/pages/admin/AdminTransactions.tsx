@@ -162,7 +162,7 @@ const AdminTransactions = () => {
     return last30Days.map(({ date, amount }) => ({ date, amount }));
   }, [transactions]);
 
-  // Payment method data for pie chart
+  // Payment method data for pie chart - with detailed mobile money providers
   const paymentMethodData = useMemo(() => {
     const methodCounts: Record<string, number> = {};
     
@@ -173,27 +173,41 @@ const AdminTransactions = () => {
         methodCounts[method] = (methodCounts[method] || 0) + 1;
       });
 
+    const totalCount = Object.values(methodCounts).reduce((sum, count) => sum + count, 0);
+
     const colors: Record<string, string> = {
       card: 'hsl(var(--primary))',
       mobile_money: 'hsl(var(--success))',
+      orange_money: '#FF6B00', // Orange Money brand color
+      mtn_money: '#FFCC00', // MTN brand color  
+      wave: '#1A8FE3', // Wave brand color
+      moov_money: '#00A651', // Moov Money brand color
       bank: 'hsl(var(--accent))',
       ussd: 'hsl(var(--warning))',
       unknown: 'hsl(var(--muted))',
     };
 
     const labels: Record<string, string> = {
-      card: 'Carte',
+      card: 'Carte bancaire',
       mobile_money: 'Mobile Money',
-      bank: 'Virement',
+      orange_money: 'Orange Money',
+      mtn_money: 'MTN Mobile Money',
+      wave: 'Wave',
+      moov_money: 'Moov Money',
+      bank: 'Virement bancaire',
       ussd: 'USSD',
       unknown: 'Autre',
     };
 
-    return Object.entries(methodCounts).map(([method, value]) => ({
-      name: labels[method] || method,
-      value,
-      color: colors[method] || 'hsl(var(--muted))',
-    }));
+    return Object.entries(methodCounts).map(([method, value]) => {
+      const percentage = totalCount > 0 ? Math.round((value / totalCount) * 100) : 0;
+      return {
+        name: labels[method] || method,
+        value,
+        percentage,
+        color: colors[method] || 'hsl(var(--muted))',
+      };
+    });
   }, [transactions]);
 
   // Export to CSV
@@ -287,12 +301,16 @@ const AdminTransactions = () => {
               </Select>
 
               <Select value={methodFilter} onValueChange={setMethodFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="Méthode" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toutes</SelectItem>
-                  <SelectItem value="card">Carte</SelectItem>
+                  <SelectItem value="card">Carte bancaire</SelectItem>
+                  <SelectItem value="orange_money">Orange Money</SelectItem>
+                  <SelectItem value="mtn_money">MTN Money</SelectItem>
+                  <SelectItem value="wave">Wave</SelectItem>
+                  <SelectItem value="moov_money">Moov Money</SelectItem>
                   <SelectItem value="mobile_money">Mobile Money</SelectItem>
                   <SelectItem value="bank">Virement</SelectItem>
                 </SelectContent>
