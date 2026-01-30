@@ -12,6 +12,14 @@ interface PaystackInitializeRequest {
   callbackUrl?: string;
 }
 
+interface PaystackGroupInitializeRequest {
+  orderIds: string[];
+  groupId: string;
+  email: string;
+  amount: number;
+  callbackUrl?: string;
+}
+
 interface PaystackVerifyRequest {
   reference: string;
 }
@@ -411,8 +419,241 @@ Deno.serve(async (req) => {
       );
     }
 
+    // GROUP PAYMENT: Initialize payment for multiple orders
+    if (action === 'initialize-group' && req.method === 'POST') {
+      const { orderIds, groupId, email, amount, callbackUrl }: PaystackGroupInitializeRequest = await req.json();
+
+      console.log('Initialize group payment request:', { orderIds, groupId, email, amount });
+
+      if (!orderIds || orderIds.length === 0 || !email || !amount || !groupId) {
+        return new Response(
+          JSON.stringify({ error: 'orderIds, groupId, email, and amount are required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Verify the user owns all these orders
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, client_id, provider_id, total_amount')
+        .in('id', orderIds);
+
+      if (ordersError || !orders || orders.length !== orderIds.length) {
+        console.error('Orders not found or mismatch:', ordersError);
+        return new Response(
+          JSON.stringify({ error: 'One or more orders not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check all orders belong to the user
+      const invalidOrders = orders.filter(o => o.client_id !== userId);
+      if (invalidOrders.length > 0) {
+        console.error('Unauthorized: user does not own all orders');
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized - not all orders belong to you' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Convert amount to kobo (Paystack uses lowest currency unit)
+      const amountInKobo = Math.round(amount * 100);
+      const reference = `group_${groupId.slice(0, 8)}_${Date.now()}`;
+
+      console.log('Calling Paystack API to initialize group payment...');
+
+      const response = await fetch('https://api.paystack.co/transaction/initialize', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          amount: amountInKobo,
+          reference,
+          currency: 'XOF',
+          callback_url: callbackUrl,
+          metadata: {
+            order_ids: orderIds,
+            group_id: groupId,
+            is_group_payment: true,
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Paystack initialize group error:', data);
+        throw new Error(data.message || 'Failed to initialize group payment');
+      }
+
+      console.log('Group payment initialized successfully:', { reference, groupId, orderIds });
+
+      // Create a transaction record for the group payment (use first provider for reference)
+      await createTransaction(supabase, {
+        orderId: orderIds[0],
+        providerId: orders[0].provider_id,
+        amount,
+        reference: data.data.reference,
+        status: 'pending',
+        type: 'payment',
+        description: `Paiement groupé - ${orderIds.length} commande(s)`,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          authorization_url: data.data.authorization_url,
+          access_code: data.data.access_code,
+          reference: data.data.reference,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // GROUP PAYMENT: Verify payment for multiple orders
+    if (action === 'verify-group' && req.method === 'POST') {
+      const { reference }: PaystackVerifyRequest = await req.json();
+
+      console.log('Verify group payment request:', { reference });
+
+      if (!reference) {
+        return new Response(
+          JSON.stringify({ error: 'reference is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Paystack verify group error:', data);
+        throw new Error(data.message || 'Failed to verify group payment');
+      }
+
+      const transaction = data.data;
+      const orderIds = transaction.metadata?.order_ids as string[] | undefined;
+      const groupId = transaction.metadata?.group_id as string | undefined;
+
+      console.log('Paystack group verification response:', { 
+        reference, 
+        status: transaction.status,
+        orderIds,
+        groupId,
+      });
+
+      // Verify user has access to these orders
+      if (orderIds && orderIds.length > 0) {
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('id, client_id, provider_id')
+          .in('id', orderIds);
+
+        if (orders) {
+          const invalidOrders = orders.filter(o => o.client_id !== userId);
+          if (invalidOrders.length > 0) {
+            return new Response(
+              JSON.stringify({ error: 'Unauthorized - not your orders' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+      }
+
+      const paymentSuccess = transaction.status === 'success';
+      let ordersUpdated = 0;
+
+      if (orderIds && orderIds.length > 0 && paymentSuccess) {
+        // Calculate deposit per order
+        const depositPerOrder = (transaction.amount / 100) / orderIds.length;
+
+        // Update all orders to pending (waiting for provider confirmation)
+        const { error: updateError, data: updatedOrders } = await supabase
+          .from('orders')
+          .update({
+            deposit_paid: depositPerOrder,
+          })
+          .in('id', orderIds)
+          .select('id, provider_id, total_amount');
+
+        if (updateError) {
+          console.error('Error updating orders:', updateError);
+        } else {
+          ordersUpdated = updatedOrders?.length || 0;
+          console.log('Orders updated successfully:', ordersUpdated);
+
+          // Send notifications to all providers
+          if (updatedOrders && updatedOrders.length > 0) {
+            try {
+              const notifications = updatedOrders.map(order => ({
+                user_id: order.provider_id,
+                type: 'new_order',
+                title: 'Nouvelle commande payée',
+                body: `Une nouvelle commande de ${order.total_amount?.toLocaleString()} FCFA nécessite votre confirmation`,
+                data: {
+                  order_id: order.id,
+                  group_id: groupId,
+                  requires_confirmation: true,
+                },
+              }));
+
+              // Use supabase service role to insert notifications
+              const { error: notifError } = await supabase
+                .from('notifications')
+                .insert(notifications);
+
+              if (notifError) {
+                console.error('Error sending notifications:', notifError);
+              } else {
+                console.log('Notifications sent to', notifications.length, 'providers');
+              }
+            } catch (notifErr) {
+              console.error('Failed to send provider notifications:', notifErr);
+            }
+          }
+        }
+
+        // Update transaction record
+        await updateTransaction(supabase, reference, {
+          status: 'success',
+          paymentMethod: transaction.channel || 'card',
+          processedAt: transaction.paid_at || new Date().toISOString(),
+        });
+      } else if (!paymentSuccess) {
+        // Update transaction record to failed
+        await updateTransaction(supabase, reference, {
+          status: 'failed',
+          processedAt: new Date().toISOString(),
+        });
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: paymentSuccess,
+          status: transaction.status,
+          amount: transaction.amount / 100,
+          currency: transaction.currency,
+          reference: transaction.reference,
+          paid_at: transaction.paid_at,
+          channel: transaction.channel,
+          ordersUpdated,
+          groupId,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: 'Invalid action. Use /initialize, /verify, or /webhook' }),
+      JSON.stringify({ error: 'Invalid action. Use /initialize, /verify, /initialize-group, /verify-group, or /webhook' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

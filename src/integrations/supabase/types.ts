@@ -371,6 +371,7 @@ export type Database = {
           deposit_paid: number | null
           event_date: string | null
           event_location: string | null
+          group_id: string | null
           id: string
           notes: string | null
           provider_id: string
@@ -384,6 +385,7 @@ export type Database = {
           deposit_paid?: number | null
           event_date?: string | null
           event_location?: string | null
+          group_id?: string | null
           id?: string
           notes?: string | null
           provider_id: string
@@ -397,6 +399,7 @@ export type Database = {
           deposit_paid?: number | null
           event_date?: string | null
           event_location?: string | null
+          group_id?: string | null
           id?: string
           notes?: string | null
           provider_id?: string
