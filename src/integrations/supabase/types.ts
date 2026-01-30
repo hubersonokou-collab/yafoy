@@ -808,6 +808,10 @@ export type Database = {
       }
       is_accountant: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_chat_room_participant: {
+        Args: { _room_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_client: { Args: { _user_id: string }; Returns: boolean }
       is_moderator: { Args: { _user_id: string }; Returns: boolean }
       is_provider: { Args: { _user_id: string }; Returns: boolean }
