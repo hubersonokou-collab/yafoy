@@ -8,7 +8,8 @@ import {
   MapPin,
   Package,
   Wallet,
-  Sparkles
+  Sparkles,
+  Store
 } from 'lucide-react';
 
 interface SelectedProduct {
@@ -18,6 +19,8 @@ interface SelectedProduct {
   category_name?: string;
   quantity?: number;
   rental_days?: number;
+  provider_id?: string;
+  provider_name?: string;
 }
 
 interface EventData {
@@ -53,6 +56,24 @@ export const InvoiceDisplay = ({ eventData, selectedProducts, rentalDays = 1 }: 
   
   const today = new Date();
   const invoiceNumber = `INV-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+  // Group products by provider
+  const productsByProvider = selectedProducts.reduce((acc, product) => {
+    const providerId = product.provider_id || 'unknown';
+    if (!acc[providerId]) {
+      acc[providerId] = {
+        products: [],
+        providerName: product.provider_name || `Prestataire`,
+        subtotal: 0,
+      };
+    }
+    const lineTotal = product.price_per_day * (product.rental_days || rentalDays) * (product.quantity || 1);
+    acc[providerId].products.push(product);
+    acc[providerId].subtotal += lineTotal;
+    return acc;
+  }, {} as Record<string, { products: SelectedProduct[]; providerName: string; subtotal: number }>);
+
+  const providerCount = Object.keys(productsByProvider).length;
 
   return (
     <Card className="border-2 border-primary/20 bg-gradient-to-br from-background to-primary/5">
@@ -149,6 +170,47 @@ export const InvoiceDisplay = ({ eventData, selectedProducts, rentalDays = 1 }: 
             </table>
           </div>
         </div>
+
+        {/* Per-Provider Breakdown */}
+        {providerCount > 1 && (
+          <div className="space-y-3">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Store className="h-4 w-4" />
+              Détail par prestataire ({providerCount})
+            </h3>
+            <div className="space-y-3">
+              {Object.entries(productsByProvider).map(([providerId, providerData], index) => (
+                <div 
+                  key={providerId} 
+                  className="border rounded-lg p-3 bg-muted/30"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Store className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{providerData.providerName} #{index + 1}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {providerData.products.length} produit(s)
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="font-mono">
+                      {providerData.subtotal.toLocaleString()} FCFA
+                    </Badge>
+                  </div>
+                  <div className="ml-10 text-xs text-muted-foreground">
+                    {providerData.products.map(p => p.name).join(', ')}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground italic">
+              💡 Une commande sera créée pour chaque prestataire
+            </p>
+          </div>
+        )}
 
         <Separator />
 
