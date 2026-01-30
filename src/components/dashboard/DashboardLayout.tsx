@@ -60,26 +60,39 @@ const clientNav: NavItem[] = [
 ];
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const { isSuperAdmin, isAdmin, isProvider, signOut } = useAuth();
+  const { user, userRole, isSuperAdmin, isAdmin, isProvider, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Determine which navigation to show based on the current route path
+  // This ensures consistent navigation regardless of role loading state
+  const isAdminRoute = location.pathname.startsWith('/admin');
+  const isProviderRoute = location.pathname.startsWith('/provider');
+  const isClientRoute = location.pathname.startsWith('/client');
+
   const isSuperAdminOrAdmin = isSuperAdmin() || isAdmin();
   const isProviderUser = isProvider();
   
+  // Default to client navigation - this is the most common case
   let navItems: NavItem[] = clientNav;
   let dashboardTitle = 'Client';
   let DashboardIcon = Heart;
 
-  if (isSuperAdminOrAdmin) {
+  // Determine navigation based on route first, then role as fallback
+  if (isAdminRoute && isSuperAdminOrAdmin) {
     navItems = superAdminNav;
     dashboardTitle = 'Administration';
     DashboardIcon = Shield;
-  } else if (isProviderUser) {
+  } else if (isProviderRoute && isProviderUser) {
     navItems = providerNav;
     dashboardTitle = 'Prestataire';
     DashboardIcon = Store;
+  } else if (isClientRoute || user) {
+    // For client routes or any logged-in user on client paths, show full client nav
+    navItems = clientNav;
+    dashboardTitle = 'Client';
+    DashboardIcon = Heart;
   }
 
   const handleSignOut = async () => {
