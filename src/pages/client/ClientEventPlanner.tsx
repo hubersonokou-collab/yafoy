@@ -112,7 +112,7 @@ const ClientEventPlanner = () => {
   const generateInvoice = async (data: EventFormData) => {
     setLoadingInvoice(true);
     try {
-      // Fetch products matching services needed and budget
+      // Fetch products matching services needed and budget (without profile join)
       const { data: products, error } = await supabase
         .from('products')
         .select(`
@@ -124,8 +124,7 @@ const ClientEventPlanner = () => {
           is_verified,
           category_id,
           provider_id,
-          categories:category_id(name),
-          profiles:provider_id(full_name)
+          categories:category_id(name)
         `)
         .eq('is_active', true)
         .lte('price_per_day', data.budgetMax)
@@ -141,6 +140,21 @@ const ClientEventPlanner = () => {
           const keywords = SERVICE_CATEGORY_MAP[service] || [service];
           return keywords.some(keyword => categoryName.includes(keyword.toLowerCase()));
         });
+      });
+
+      // Get unique provider IDs to fetch their profiles
+      const providerIds = [...new Set(matchedProducts.map(p => p.provider_id))];
+      
+      // Fetch provider profiles separately
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', providerIds);
+
+      // Create a map of provider_id to name
+      const providerNameMap: Record<string, string> = {};
+      (profiles || []).forEach(profile => {
+        providerNameMap[profile.user_id] = profile.full_name || 'Prestataire';
       });
 
       // Group by category and select best option per category within budget
@@ -176,7 +190,7 @@ const ClientEventPlanner = () => {
               category_name: (product.categories as any)?.name,
               category_id: product.category_id,
               provider_id: product.provider_id,
-              provider_name: (product.profiles as any)?.full_name || 'Prestataire',
+              provider_name: providerNameMap[product.provider_id] || 'Prestataire',
               quantity: 1,
               rental_days: 1,
             });
