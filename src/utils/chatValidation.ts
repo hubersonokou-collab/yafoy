@@ -1,5 +1,5 @@
 /**
- * Validates chat message content to prevent sharing of phone numbers
+ * Validates chat message content to prevent sharing of phone numbers and emails
  */
 
 // Regex patterns to detect phone numbers
@@ -16,6 +16,9 @@ const PHONE_PATTERNS = [
   /\b\d{10}\b/g,
 ];
 
+// Regex pattern to detect email addresses
+const EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/gi;
+
 export interface ValidationResult {
   isValid: boolean;
   message?: string;
@@ -26,7 +29,25 @@ export interface ValidationResult {
  * Check if a message contains a phone number
  */
 export const containsPhoneNumber = (text: string): boolean => {
-  return PHONE_PATTERNS.some(pattern => pattern.test(text));
+  return PHONE_PATTERNS.some(pattern => {
+    pattern.lastIndex = 0; // Reset regex state
+    return pattern.test(text);
+  });
+};
+
+/**
+ * Check if a message contains an email address
+ */
+export const containsEmail = (text: string): boolean => {
+  EMAIL_PATTERN.lastIndex = 0; // Reset regex state
+  return EMAIL_PATTERN.test(text);
+};
+
+/**
+ * Check if a message contains any contact information (phone or email)
+ */
+export const containsContactInfo = (text: string): boolean => {
+  return containsPhoneNumber(text) || containsEmail(text);
 };
 
 /**
@@ -51,7 +72,15 @@ export const validateChatMessage = (content: string): ValidationResult => {
   if (containsPhoneNumber(content)) {
     return {
       isValid: false,
-      message: 'Les numéros de téléphone ne sont pas autorisés dans le chat. Utilisez la messagerie sécurisée de la plateforme.',
+      message: 'Il est interdit de partager les contacts et les mails. Utilisez la messagerie sécurisée de la plateforme.',
+    };
+  }
+
+  // Check for email addresses
+  if (containsEmail(content)) {
+    return {
+      isValid: false,
+      message: 'Il est interdit de partager les contacts et les mails. Utilisez la messagerie sécurisée de la plateforme.',
     };
   }
 
@@ -61,12 +90,15 @@ export const validateChatMessage = (content: string): ValidationResult => {
 };
 
 /**
- * Sanitize message by removing phone numbers
+ * Sanitize message by removing phone numbers and emails
  */
 export const sanitizeMessage = (content: string): string => {
   let sanitized = content;
   PHONE_PATTERNS.forEach(pattern => {
+    pattern.lastIndex = 0;
     sanitized = sanitized.replace(pattern, '[numéro masqué]');
   });
+  EMAIL_PATTERN.lastIndex = 0;
+  sanitized = sanitized.replace(EMAIL_PATTERN, '[email masqué]');
   return sanitized;
 };
