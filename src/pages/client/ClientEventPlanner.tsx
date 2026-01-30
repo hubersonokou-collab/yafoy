@@ -525,18 +525,26 @@ const ClientEventPlanner = () => {
       // Fetch participants info
       const { data: participantsData } = await supabase
         .from('chat_room_participants')
-        .select(`
-          user_id,
-          role,
-          profiles:user_id(full_name, avatar_url)
-        `)
+        .select('user_id, role')
         .eq('room_id', room.id);
 
-      if (participantsData) {
+      if (participantsData && participantsData.length > 0) {
+        // Fetch profiles separately to avoid join issues
+        const participantIds = participantsData.map(p => p.user_id);
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', participantIds);
+
+        const profilesMap = (profilesData || []).reduce((acc, profile) => {
+          acc[profile.user_id] = profile;
+          return acc;
+        }, {} as Record<string, { full_name: string | null; avatar_url: string | null }>);
+
         setParticipants(participantsData.map(p => ({
           id: p.user_id,
-          full_name: (p.profiles as any)?.full_name,
-          avatar_url: (p.profiles as any)?.avatar_url,
+          full_name: profilesMap[p.user_id]?.full_name || null,
+          avatar_url: profilesMap[p.user_id]?.avatar_url || null,
           role: p.role,
         })));
       }

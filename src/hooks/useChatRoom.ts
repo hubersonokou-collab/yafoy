@@ -69,17 +69,37 @@ export const useChatRoom = (roomId: string | null) => {
     setIsLoading(true);
 
     const fetchMessages = async () => {
-      const { data } = await supabase
+      const { data: messagesData } = await supabase
         .from('chat_messages')
-        .select(`
-          *,
-          sender:profiles!chat_messages_sender_id_fkey(full_name, avatar_url)
-        `)
+        .select('*')
         .eq('room_id', roomId)
         .order('created_at', { ascending: true });
 
-      if (data) {
-        setMessages(data as unknown as ChatMessage[]);
+      if (messagesData && messagesData.length > 0) {
+        // Get unique sender IDs
+        const senderIds = [...new Set(messagesData.map(m => m.sender_id))];
+        
+        // Fetch profiles separately
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', senderIds);
+
+        const profilesMap = (profilesData || []).reduce((acc, profile) => {
+          acc[profile.user_id] = profile;
+          return acc;
+        }, {} as Record<string, { full_name: string | null; avatar_url: string | null }>);
+
+        // Merge messages with sender info
+        const messagesWithSenders = messagesData.map(msg => ({
+          ...msg,
+          message_type: msg.message_type as 'text' | 'image' | 'file' | 'voice',
+          sender: profilesMap[msg.sender_id] || { full_name: null, avatar_url: null },
+        }));
+
+        setMessages(messagesWithSenders as unknown as ChatMessage[]);
+      } else {
+        setMessages([]);
       }
       setIsLoading(false);
     };
@@ -98,19 +118,22 @@ export const useChatRoom = (roomId: string | null) => {
           filter: `room_id=eq.${roomId}`,
         },
         async (payload) => {
-          // Fetch the complete message with sender info
-          const { data } = await supabase
-            .from('chat_messages')
-            .select(`
-              *,
-              sender:profiles!chat_messages_sender_id_fkey(full_name, avatar_url)
-            `)
-            .eq('id', payload.new.id)
-            .single();
+          const newMessage = payload.new as any;
+          
+          // Fetch sender profile
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('user_id, full_name, avatar_url')
+            .eq('user_id', newMessage.sender_id)
+            .maybeSingle();
 
-          if (data) {
-            setMessages(prev => [...prev, data as unknown as ChatMessage]);
-          }
+          const messageWithSender = {
+            ...newMessage,
+            message_type: newMessage.message_type as 'text' | 'image' | 'file' | 'voice',
+            sender: profileData || { full_name: null, avatar_url: null },
+          };
+
+          setMessages(prev => [...prev, messageWithSender as ChatMessage]);
         }
       )
       .subscribe();
