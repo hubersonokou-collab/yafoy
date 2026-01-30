@@ -17,10 +17,10 @@ import {
   Shield,
   Store,
   Heart,
-  Bell,
   Sparkles,
   Receipt,
 } from 'lucide-react';
+import { NotificationPopover } from '@/components/notifications';
 import logoYafoy from '@/assets/logo-yafoy.png';
 
 interface NavItem {
@@ -185,12 +185,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
           <div className="flex-1" />
 
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-              3
-            </span>
-          </Button>
+          <NotificationPopover />
 
           <Link to="/">
             <Button variant="ghost" size="sm" className="gap-2">

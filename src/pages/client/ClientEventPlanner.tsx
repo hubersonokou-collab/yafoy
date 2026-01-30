@@ -246,6 +246,8 @@ const ClientEventPlanner = () => {
         return acc;
       }, {} as Record<string, RecommendedProduct[]>);
 
+      const createdOrders: { orderId: string; providerId: string; amount: number }[] = [];
+
       // Create an order for each provider
       for (const [providerId, products] of Object.entries(productsByProvider)) {
         const subtotal = products.reduce((sum, p) => sum + (p.price_per_day * rentalDays * (p.quantity || 1)), 0);
@@ -282,6 +284,12 @@ const ClientEventPlanner = () => {
 
           if (itemError) throw itemError;
         }
+
+        createdOrders.push({
+          orderId: order.id,
+          providerId,
+          amount: subtotal,
+        });
       }
 
       // Update event planning status
@@ -292,6 +300,33 @@ const ClientEventPlanner = () => {
           status: 'confirmed',
         })
         .eq('id', eventPlanningId);
+
+      // Send notifications to all providers via edge function
+      try {
+        const notifications = createdOrders.map(order => ({
+          user_id: order.providerId,
+          type: 'new_order',
+          title: 'Nouvelle commande reçue',
+          body: `Commande pour ${EVENT_TYPE_LABELS[eventData?.eventType || 'autre']} - ${order.amount.toLocaleString()} FCFA`,
+          data: {
+            order_id: order.orderId,
+            event_type: eventData?.eventType,
+            client_id: user.id,
+            amount: order.amount,
+          },
+        }));
+
+        const { error: notifError } = await supabase.functions.invoke('create-notification', {
+          body: { notifications },
+        });
+
+        if (notifError) {
+          console.error('Error sending notifications:', notifError);
+          // Don't throw - orders are created, notifications are secondary
+        }
+      } catch (notifErr) {
+        console.error('Failed to send provider notifications:', notifErr);
+      }
 
       toast({
         title: 'Commandes créées',
