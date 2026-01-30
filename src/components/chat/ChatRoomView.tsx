@@ -13,13 +13,16 @@ import {
   Loader2, 
   Users,
   Play,
-  Pause
+  Pause,
+  AlertCircle
 } from 'lucide-react';
 import { useChatRoom } from '@/hooks/useChatRoom';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { validateChatMessage } from '@/utils/chatValidation';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatRoomViewProps {
   roomId: string;
@@ -28,8 +31,10 @@ interface ChatRoomViewProps {
 
 export const ChatRoomView = ({ roomId, participants = [] }: ChatRoomViewProps) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const { room, messages, isLoading, isSending, sendMessage, uploadFile } = useChatRoom(roomId);
   const [input, setInput] = useState('');
+  const [inputError, setInputError] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
@@ -46,12 +51,35 @@ export const ChatRoomView = ({ roomId, participants = [] }: ChatRoomViewProps) =
     }
   }, [messages]);
 
+  const handleInputChange = (value: string) => {
+    setInput(value);
+    // Clear error when user starts typing
+    if (inputError) {
+      setInputError(null);
+    }
+  };
+
   const handleSendText = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isSending) return;
 
+    // Validate message
+    const validation = validateChatMessage(input.trim());
+    if (!validation.isValid) {
+      setInputError(validation.message || 'Message invalide');
+      toast({
+        title: 'Message non autorisé',
+        description: validation.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const success = await sendMessage(input.trim(), 'text');
-    if (success) setInput('');
+    if (success) {
+      setInput('');
+      setInputError(null);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
@@ -305,13 +333,21 @@ export const ChatRoomView = ({ roomId, participants = [] }: ChatRoomViewProps) =
               )}
             </Button>
 
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Écrivez un message..."
-              disabled={isSending || isRecording}
-              className="flex-1"
-            />
+            <div className="flex-1 flex flex-col">
+              <Input
+                value={input}
+                onChange={(e) => handleInputChange(e.target.value)}
+                placeholder="Écrivez un message..."
+                disabled={isSending || isRecording}
+                className={cn("flex-1", inputError && "border-destructive")}
+              />
+              {inputError && (
+                <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {inputError}
+                </p>
+              )}
+            </div>
 
             <Button type="submit" disabled={isSending || !input.trim() || isRecording}>
               {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
