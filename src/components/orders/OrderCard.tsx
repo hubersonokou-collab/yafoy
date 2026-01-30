@@ -1,9 +1,23 @@
-import { Calendar, MapPin, Package } from 'lucide-react';
+import { Calendar, MapPin, Package, Clock, ShoppingBag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { OrderTimeline } from './OrderTimeline';
+import { Separator } from '@/components/ui/separator';
 
 type OrderStatus = 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+
+interface OrderItem {
+  id: string;
+  product_id: string;
+  quantity: number;
+  price_per_day: number;
+  rental_days: number;
+  subtotal: number;
+  product?: {
+    name: string;
+    images?: string[];
+  };
+}
 
 interface OrderCardProps {
   order: {
@@ -15,8 +29,14 @@ interface OrderCardProps {
     event_location?: string | null;
     notes?: string | null;
     created_at: string;
+    items?: OrderItem[];
+    client?: {
+      full_name?: string | null;
+      phone?: string | null;
+    };
   };
   showTimeline?: boolean;
+  showItems?: boolean;
   actions?: React.ReactNode;
   onClick?: () => void;
 }
@@ -29,8 +49,9 @@ const statusConfig: Record<OrderStatus, { label: string; className: string }> = 
   cancelled: { label: 'Annulée', className: 'bg-red-100 text-red-800' },
 };
 
-export const OrderCard = ({ order, showTimeline = false, actions, onClick }: OrderCardProps) => {
+export const OrderCard = ({ order, showTimeline = false, showItems = false, actions, onClick }: OrderCardProps) => {
   const config = statusConfig[order.status] || statusConfig.pending;
+  const orderDate = new Date(order.created_at);
 
   return (
     <Card
@@ -47,14 +68,29 @@ export const OrderCard = ({ order, showTimeline = false, actions, onClick }: Ord
                 <p className="font-semibold">Commande #{order.id.slice(0, 8)}</p>
                 <Badge className={config.className}>{config.label}</Badge>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Créée le{' '}
-                {new Date(order.created_at).toLocaleDateString('fr-FR', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </p>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>
+                  {orderDate.toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </span>
+                <Clock className="h-3.5 w-3.5 ml-2" />
+                <span>
+                  {orderDate.toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </div>
+              {order.client?.full_name && (
+                <p className="text-sm text-muted-foreground">
+                  Client: <span className="font-medium text-foreground">{order.client.full_name}</span>
+                  {order.client.phone && ` • ${order.client.phone}`}
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-xl font-bold text-primary">
@@ -75,7 +111,7 @@ export const OrderCard = ({ order, showTimeline = false, actions, onClick }: Ord
                 <div className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
                   <span>
-                    {new Date(order.event_date).toLocaleDateString('fr-FR', {
+                    Événement: {new Date(order.event_date).toLocaleDateString('fr-FR', {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric',
@@ -90,6 +126,52 @@ export const OrderCard = ({ order, showTimeline = false, actions, onClick }: Ord
                 </div>
               )}
             </div>
+          )}
+
+          {/* Order Items */}
+          {showItems && order.items && order.items.length > 0 && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <ShoppingBag className="h-4 w-4" />
+                  <span>Articles commandés ({order.items.length})</span>
+                </div>
+                <div className="space-y-2 pl-6">
+                  {order.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-lg border bg-muted/30 p-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        {item.product?.images?.[0] ? (
+                          <img
+                            src={item.product.images[0]}
+                            alt={item.product?.name || 'Produit'}
+                            className="h-10 w-10 rounded object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded bg-muted">
+                            <Package className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-sm">
+                            {item.product?.name || 'Produit'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.quantity} × {Number(item.price_per_day).toLocaleString()} FCFA/jour × {item.rental_days} jour(s)
+                          </p>
+                        </div>
+                      </div>
+                      <p className="font-semibold text-sm">
+                        {Number(item.subtotal).toLocaleString()} FCFA
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
 
           {/* Notes */}

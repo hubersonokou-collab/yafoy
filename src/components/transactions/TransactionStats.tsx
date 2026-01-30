@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, CreditCard, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { TrendingUp, CreditCard, CheckCircle, XCircle, Clock, Percent } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -23,6 +23,8 @@ interface TransactionStatsProps {
     todayCount: number;
     pendingCount: number;
     failedCount: number;
+    totalCommission: number;
+    todayCommission: number;
   };
   revenueData: { date: string; amount: number }[];
   paymentMethodData: { name: string; value: number; color: string }[];
@@ -42,11 +44,12 @@ export const TransactionStats = ({
       bgColor: 'bg-success/10',
     },
     {
-      title: 'Transactions réussies',
-      value: stats.totalTransactions - stats.pendingCount - stats.failedCount,
-      icon: CheckCircle,
-      color: 'text-success',
-      bgColor: 'bg-success/10',
+      title: 'Bénéfice (5%)',
+      value: `${stats.totalCommission.toLocaleString()} FCFA`,
+      subValue: `Aujourd'hui: ${stats.todayCommission.toLocaleString()} FCFA`,
+      icon: Percent,
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-100',
     },
     {
       title: 'Taux de réussite',

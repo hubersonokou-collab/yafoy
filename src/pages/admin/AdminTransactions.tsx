@@ -107,25 +107,34 @@ const AdminTransactions = () => {
     });
   }, [transactions, statusFilter, periodFilter, methodFilter]);
 
-  // Calculate stats
+  // Calculate stats with commission (5%)
   const stats = useMemo(() => {
     const successfulTransactions = transactions.filter((t) => t.status === 'success' || t.status === 'completed');
     const todayTransactions = transactions.filter((t) => isToday(parseISO(t.created_at)));
     const todaySuccessful = todayTransactions.filter((t) => t.status === 'success' || t.status === 'completed');
 
+    const totalRevenue = successfulTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+    const todayRevenue = todaySuccessful.reduce((sum, t) => sum + Number(t.amount), 0);
+
+    // Commission is 5% of total amount
+    const totalCommission = Math.round(totalRevenue * 0.05);
+    const todayCommission = Math.round(todayRevenue * 0.05);
+
     return {
-      totalRevenue: successfulTransactions.reduce((sum, t) => sum + Number(t.amount), 0),
+      totalRevenue,
       totalTransactions: transactions.length,
       successRate: transactions.length > 0
         ? (successfulTransactions.length / transactions.length) * 100
         : 0,
       averageAmount: successfulTransactions.length > 0
-        ? successfulTransactions.reduce((sum, t) => sum + Number(t.amount), 0) / successfulTransactions.length
+        ? totalRevenue / successfulTransactions.length
         : 0,
-      todayRevenue: todaySuccessful.reduce((sum, t) => sum + Number(t.amount), 0),
+      todayRevenue,
       todayCount: todayTransactions.length,
       pendingCount: transactions.filter((t) => t.status === 'pending').length,
       failedCount: transactions.filter((t) => t.status === 'failed').length,
+      totalCommission,
+      todayCommission,
     };
   }, [transactions]);
 
