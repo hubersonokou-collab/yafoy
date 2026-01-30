@@ -5,21 +5,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EventPlannerChat } from '@/components/event-planner';
 import { AccessibleEventPlanner } from '@/components/event-planner/AccessibleEventPlanner';
-import { InvoiceDisplay } from '@/components/event-planner/InvoiceDisplay';
+import { EditableInvoice } from '@/components/event-planner/EditableInvoice';
 import { ChatRoomView } from '@/components/chat';
-import { ProductCard } from '@/components/products/ProductCard';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Loader2, 
   ArrowLeft, 
   MessageSquare, 
-  Check, 
   Users,
   Calendar,
   Wallet,
@@ -30,13 +25,8 @@ import {
   Church,
   Building2,
   PartyPopper,
-  Package,
-  ShoppingCart,
-  Edit3,
   Receipt,
   CreditCard,
-  CheckCircle2,
-  X
 } from 'lucide-react';
 
 interface EventFormData {
@@ -61,8 +51,9 @@ interface RecommendedProduct {
   category_name?: string;
   category_id: string | null;
   provider_id: string;
-  quantity?: number;
-  rental_days?: number;
+  provider_name?: string;
+  quantity: number;
+  rental_days: number;
 }
 
 const EVENT_TYPE_ICONS: Record<string, React.ElementType> = {
@@ -101,18 +92,16 @@ const ClientEventPlanner = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [step, setStep] = useState<'form' | 'recommendations' | 'invoice' | 'chat' | 'room'>('form');
+  const [step, setStep] = useState<'form' | 'invoice' | 'chat' | 'room'>('form');
   const [eventData, setEventData] = useState<EventFormData | null>(null);
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [eventPlanningId, setEventPlanningId] = useState<string | null>(null);
   const [chatRoomId, setChatRoomId] = useState<string | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [participants, setParticipants] = useState<any[]>([]);
-  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [invoiceProducts, setInvoiceProducts] = useState<RecommendedProduct[]>([]);
+  const [loadingInvoice, setLoadingInvoice] = useState(false);
   const [rentalDays, setRentalDays] = useState(1);
-  const [isEditingSelection, setIsEditingSelection] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -120,8 +109,8 @@ const ClientEventPlanner = () => {
     }
   }, [user, authLoading, navigate]);
 
-  const fetchRecommendations = async (data: EventFormData) => {
-    setLoadingRecommendations(true);
+  const generateInvoice = async (data: EventFormData) => {
+    setLoadingInvoice(true);
     try {
       // Fetch products matching services needed and budget
       const { data: products, error } = await supabase
@@ -135,7 +124,8 @@ const ClientEventPlanner = () => {
           is_verified,
           category_id,
           provider_id,
-          categories:category_id(name)
+          categories:category_id(name),
+          profiles:provider_id(full_name)
         `)
         .eq('is_active', true)
         .lte('price_per_day', data.budgetMax)
@@ -144,30 +134,68 @@ const ClientEventPlanner = () => {
 
       if (error) throw error;
 
-      // Filter products by matching services
+      // Filter products by matching services and select the best ones within budget
       const matchedProducts = (products || []).filter(product => {
         const categoryName = (product.categories as any)?.name?.toLowerCase() || '';
         return data.servicesNeeded.some(service => {
           const keywords = SERVICE_CATEGORY_MAP[service] || [service];
           return keywords.some(keyword => categoryName.includes(keyword.toLowerCase()));
         });
-      }).map(p => ({
-        id: p.id,
-        name: p.name,
-        price_per_day: p.price_per_day,
-        location: p.location,
-        images: p.images,
-        is_verified: p.is_verified,
-        category_name: (p.categories as any)?.name,
-        category_id: p.category_id,
-        provider_id: p.provider_id,
-      }));
+      });
 
-      setRecommendedProducts(matchedProducts);
+      // Group by category and select best option per category within budget
+      const productsByCategory: Record<string, any[]> = {};
+      matchedProducts.forEach(p => {
+        const category = (p.categories as any)?.name || 'Autres';
+        if (!productsByCategory[category]) productsByCategory[category] = [];
+        productsByCategory[category].push(p);
+      });
+
+      // Select the best (verified first, then cheapest) product per category
+      let selectedProducts: RecommendedProduct[] = [];
+      let runningTotal = 0;
+      
+      for (const category of Object.keys(productsByCategory)) {
+        // Sort by verified first, then by price
+        const categoryProducts = productsByCategory[category].sort((a, b) => {
+          if (a.is_verified && !b.is_verified) return -1;
+          if (!a.is_verified && b.is_verified) return 1;
+          return a.price_per_day - b.price_per_day;
+        });
+
+        // Pick the first product that fits in budget
+        for (const product of categoryProducts) {
+          if (runningTotal + product.price_per_day <= data.budgetMax) {
+            selectedProducts.push({
+              id: product.id,
+              name: product.name,
+              price_per_day: product.price_per_day,
+              location: product.location,
+              images: product.images,
+              is_verified: product.is_verified,
+              category_name: (product.categories as any)?.name,
+              category_id: product.category_id,
+              provider_id: product.provider_id,
+              provider_name: (product.profiles as any)?.full_name || 'Prestataire',
+              quantity: 1,
+              rental_days: 1,
+            });
+            runningTotal += product.price_per_day;
+            break;
+          }
+        }
+      }
+
+      setInvoiceProducts(selectedProducts);
     } catch (error) {
-      console.error('Error fetching recommendations:', error);
+      console.error('Error generating invoice:', error);
+      toast({
+        title: 'Erreur',
+        description: "Impossible de générer la facture",
+        variant: 'destructive',
+      });
     } finally {
-      setLoadingRecommendations(false);
+      setLoadingInvoice(false);
     }
   };
 
@@ -199,9 +227,9 @@ const ClientEventPlanner = () => {
       setEventPlanningId(eventPlanning.id);
       setEventData(data);
       
-      // Fetch recommendations directly after form submission
-      await fetchRecommendations(data);
-      setStep('recommendations');
+      // Generate invoice directly after form submission
+      await generateInvoice(data);
+      setStep('invoice');
     } catch (error) {
       console.error('Error saving event:', error);
       toast({
@@ -212,45 +240,48 @@ const ClientEventPlanner = () => {
     }
   };
 
-  const handleProductSelect = (productId: string) => {
-    setSelectedProductIds(prev => 
-      prev.includes(productId) 
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    );
+  const handleUpdateProducts = (updatedProducts: RecommendedProduct[]) => {
+    setInvoiceProducts(updatedProducts);
   };
 
-  const handleValidateRecommendations = () => {
-    if (selectedProductIds.length === 0) {
-      toast({
-        title: 'Sélection requise',
-        description: 'Veuillez sélectionner au moins un produit',
-        variant: 'destructive',
-      });
-      return;
-    }
-    setStep('invoice');
+  const handleRemoveProduct = (productId: string) => {
+    setInvoiceProducts(prev => prev.filter(p => p.id !== productId));
   };
 
-  const handleCreateGlobalOrder = async () => {
-    if (!user || !eventPlanningId || selectedProductIds.length === 0) return;
+  const handleUpdateQuantity = (productId: string, quantity: number) => {
+    setInvoiceProducts(prev => prev.map(p => 
+      p.id === productId ? { ...p, quantity: Math.max(1, quantity) } : p
+    ));
+  };
+
+  const handleUpdateRentalDays = (productId: string, days: number) => {
+    setInvoiceProducts(prev => prev.map(p => 
+      p.id === productId ? { ...p, rental_days: Math.max(1, days) } : p
+    ));
+  };
+
+  const handleConfirmOrder = async () => {
+    if (!user || !eventPlanningId || invoiceProducts.length === 0) return;
 
     setIsCreatingOrder(true);
     try {
-      const selectedProducts = recommendedProducts.filter(p => selectedProductIds.includes(p.id));
-      
       // Group products by provider
-      const productsByProvider = selectedProducts.reduce((acc, product) => {
-        if (!acc[product.provider_id]) acc[product.provider_id] = [];
-        acc[product.provider_id].push(product);
+      const productsByProvider = invoiceProducts.reduce((acc, product) => {
+        if (!acc[product.provider_id]) {
+          acc[product.provider_id] = {
+            products: [],
+            providerName: product.provider_name || 'Prestataire',
+          };
+        }
+        acc[product.provider_id].products.push(product);
         return acc;
-      }, {} as Record<string, RecommendedProduct[]>);
+      }, {} as Record<string, { products: RecommendedProduct[]; providerName: string }>);
 
-      const createdOrders: { orderId: string; providerId: string; amount: number }[] = [];
+      const createdOrders: { orderId: string; providerId: string; providerName: string; amount: number }[] = [];
 
       // Create an order for each provider
-      for (const [providerId, products] of Object.entries(productsByProvider)) {
-        const subtotal = products.reduce((sum, p) => sum + (p.price_per_day * rentalDays * (p.quantity || 1)), 0);
+      for (const [providerId, { products, providerName }] of Object.entries(productsByProvider)) {
+        const subtotal = products.reduce((sum, p) => sum + (p.price_per_day * p.rental_days * p.quantity), 0);
         
         const { data: order, error: orderError } = await supabase
           .from('orders')
@@ -276,10 +307,10 @@ const ClientEventPlanner = () => {
             .insert({
               order_id: order.id,
               product_id: product.id,
-              quantity: product.quantity || 1,
+              quantity: product.quantity,
               price_per_day: product.price_per_day,
-              rental_days: rentalDays,
-              subtotal: product.price_per_day * rentalDays * (product.quantity || 1),
+              rental_days: product.rental_days,
+              subtotal: product.price_per_day * product.rental_days * product.quantity,
             });
 
           if (itemError) throw itemError;
@@ -288,6 +319,7 @@ const ClientEventPlanner = () => {
         createdOrders.push({
           orderId: order.id,
           providerId,
+          providerName,
           amount: subtotal,
         });
       }
@@ -296,7 +328,7 @@ const ClientEventPlanner = () => {
       await supabase
         .from('event_planning_requests')
         .update({
-          ai_recommendations: selectedProductIds,
+          ai_recommendations: invoiceProducts.map(p => p.id),
           status: 'confirmed',
         })
         .eq('id', eventPlanningId);
@@ -322,15 +354,14 @@ const ClientEventPlanner = () => {
 
         if (notifError) {
           console.error('Error sending notifications:', notifError);
-          // Don't throw - orders are created, notifications are secondary
         }
       } catch (notifErr) {
         console.error('Failed to send provider notifications:', notifErr);
       }
 
       toast({
-        title: 'Commandes créées',
-        description: `${Object.keys(productsByProvider).length} commande(s) envoyée(s) aux prestataires`,
+        title: 'Commandes envoyées',
+        description: `${createdOrders.length} commande(s) séparée(s) envoyée(s) aux prestataires`,
         className: 'bg-success text-success-foreground',
       });
 
@@ -348,15 +379,17 @@ const ClientEventPlanner = () => {
   };
 
   const handleCreateChatRoom = async () => {
-    if (!user || !eventPlanningId || selectedProductIds.length === 0) return;
+    if (!user || !eventPlanningId || invoiceProducts.length === 0) return;
 
     setIsCreatingRoom(true);
     try {
+      const productIds = invoiceProducts.map(p => p.id);
+      
       // Get provider IDs from selected products
       const { data: products } = await supabase
         .from('products')
         .select('id, provider_id')
-        .in('id', selectedProductIds);
+        .in('id', productIds);
 
       if (!products || products.length === 0) throw new Error('Aucun produit sélectionné');
 
@@ -381,7 +414,7 @@ const ClientEventPlanner = () => {
         role: 'organizer',
       });
 
-      // Add providers as participants and save selected providers
+      // Add providers as participants
       const providerIds = [...new Set(products.map(p => p.provider_id))];
       
       for (const providerId of providerIds) {
@@ -402,11 +435,11 @@ const ClientEventPlanner = () => {
         });
       }
 
-      // Update event planning with recommendations
+      // Update event planning
       await supabase
         .from('event_planning_requests')
         .update({
-          ai_recommendations: selectedProductIds,
+          ai_recommendations: productIds,
           status: 'pending',
         })
         .eq('id', eventPlanningId);
@@ -449,16 +482,6 @@ const ClientEventPlanner = () => {
     }
   };
 
-  const getSelectedProductsWithDetails = () => {
-    return recommendedProducts
-      .filter(p => selectedProductIds.includes(p.id))
-      .map(p => ({
-        ...p,
-        rental_days: rentalDays,
-        quantity: p.quantity || 1,
-      }));
-  };
-
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -474,16 +497,15 @@ const ClientEventPlanner = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-        {step !== 'form' && (
+          {step !== 'form' && (
             <Button
               variant="ghost"
               size="icon"
               className="h-12 w-12 rounded-full"
               onClick={() => {
                 if (step === 'room') setStep('invoice');
-                else if (step === 'invoice') setStep('recommendations');
-                else if (step === 'chat') setStep('recommendations');
-                else if (step === 'recommendations') setStep('form');
+                else if (step === 'invoice') setStep('form');
+                else if (step === 'chat') setStep('invoice');
               }}
               aria-label="Retour"
             >
@@ -498,16 +520,10 @@ const ClientEventPlanner = () => {
                   Planifier un événement
                 </>
               )}
-              {step === 'recommendations' && (
-                <>
-                  <ShoppingCart className="h-8 w-8 text-primary" />
-                  Recommandations
-                </>
-              )}
               {step === 'invoice' && (
                 <>
                   <Receipt className="h-8 w-8 text-primary" />
-                  Facture & Commande
+                  Facture Pro Forma
                 </>
               )}
               {step === 'chat' && (
@@ -553,35 +569,21 @@ const ClientEventPlanner = () => {
           <AccessibleEventPlanner onSubmit={handleFormSubmit} />
         )}
 
-        {step === 'recommendations' && eventData && (
+        {/* Invoice Step */}
+        {step === 'invoice' && eventData && (
           <div className="space-y-6">
-            {/* Recommendations Header */}
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Sparkles className="h-8 w-8 text-primary" />
-                  <div>
-                    <h2 className="text-lg font-semibold">Recommandations pour votre {EVENT_TYPE_LABELS[eventData.eventType]}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {recommendedProducts.length} produit(s) trouvé(s) dans votre budget • Sélectionnez ceux qui vous intéressent
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {loadingRecommendations ? (
+            {loadingInvoice ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-lg font-medium text-muted-foreground">Recherche des meilleurs prestataires...</p>
+                <p className="text-lg font-medium text-muted-foreground">Génération de votre facture...</p>
               </div>
-            ) : recommendedProducts.length === 0 ? (
+            ) : invoiceProducts.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-16">
-                  <Package className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                  <p className="text-lg font-medium text-muted-foreground mb-2">Aucun produit trouvé</p>
+                  <Receipt className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                  <p className="text-lg font-medium text-muted-foreground mb-2">Aucun produit disponible</p>
                   <p className="text-sm text-muted-foreground/70 text-center max-w-sm mb-4">
-                    Essayez d'augmenter votre budget ou de modifier les services recherchés
+                    Aucun produit ne correspond à votre budget et services demandés
                   </p>
                   <Button variant="outline" onClick={() => setStep('form')}>
                     Modifier les critères
@@ -590,229 +592,64 @@ const ClientEventPlanner = () => {
               </Card>
             ) : (
               <>
-                {/* Group by category */}
-                {Object.entries(
-                  recommendedProducts.reduce((acc, product) => {
-                    const category = product.category_name || 'Autres';
-                    if (!acc[category]) acc[category] = [];
-                    acc[category].push(product);
-                    return acc;
-                  }, {} as Record<string, RecommendedProduct[]>)
-                ).map(([category, products]) => (
-                  <section key={category} className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-xl font-semibold text-secondary">{category}</h3>
-                      <Badge variant="secondary">{products.length} option(s)</Badge>
-                    </div>
-                    <ScrollArea className="w-full">
-                      <div className="flex gap-4 pb-4">
-                        {products.map((product) => (
-                          <div key={product.id} className="min-w-[280px] max-w-[300px]">
-                            <div 
-                              className={`relative rounded-xl border-2 transition-all cursor-pointer ${
-                                selectedProductIds.includes(product.id) 
-                                  ? 'border-primary ring-2 ring-primary/30 shadow-lg' 
-                                  : 'border-border hover:border-primary/50'
-                              }`}
-                              onClick={() => handleProductSelect(product.id)}
-                            >
-                              {selectedProductIds.includes(product.id) && (
-                                <div className="absolute top-3 right-3 z-10 bg-primary text-primary-foreground rounded-full p-1">
-                                  <Check className="h-4 w-4" />
-                                </div>
-                              )}
-                              <ProductCard
-                                product={{
-                                  ...product,
-                                  category: product.category_name ? { name: product.category_name } : undefined,
-                                }}
-                                showFavoriteButton
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
-                  </section>
-                ))}
-              </>
-            )}
+                <EditableInvoice
+                  eventData={eventData}
+                  products={invoiceProducts}
+                  onUpdateQuantity={handleUpdateQuantity}
+                  onUpdateRentalDays={handleUpdateRentalDays}
+                  onRemoveProduct={handleRemoveProduct}
+                />
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="flex-1 h-14"
-                onClick={() => setStep('chat')}
-              >
-                <MessageSquare className="mr-2 h-5 w-5" />
-                Discuter avec l'assistant IA
-              </Button>
-              
-              {selectedProductIds.length > 0 && (
-                <Button 
-                  size="lg" 
-                  className="flex-1 h-14 bg-primary"
-                  onClick={handleValidateRecommendations}
-                >
-                  <CheckCircle2 className="mr-2 h-5 w-5" />
-                  Valider la sélection ({selectedProductIds.length})
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Invoice Step */}
-        {step === 'invoice' && eventData && (
-          <div className="space-y-6">
-            {/* Selection Summary */}
-            <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
-                      <CheckCircle2 className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-semibold text-green-800 dark:text-green-200">
-                        {selectedProductIds.length} produit(s) sélectionné(s)
-                      </h2>
-                      <p className="text-sm text-green-600 dark:text-green-400">
-                        Votre sélection est prête pour la commande
-                      </p>
-                    </div>
-                  </div>
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-4">
                   <Button 
                     variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setIsEditingSelection(true);
-                      setStep('recommendations');
-                    }}
-                    className="border-green-300 text-green-700 hover:bg-green-100 dark:border-green-700 dark:text-green-400"
+                    size="lg" 
+                    className="flex-1 h-14"
+                    onClick={handleCreateChatRoom}
+                    disabled={isCreatingRoom}
                   >
-                    <Edit3 className="mr-2 h-4 w-4" />
-                    Modifier
+                    {isCreatingRoom ? (
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    ) : (
+                      <MessageSquare className="mr-2 h-5 w-5" />
+                    )}
+                    Discuter avec les prestataires
+                  </Button>
+                  
+                  <Button 
+                    size="lg" 
+                    className="flex-1 h-14 bg-green-600 hover:bg-green-700"
+                    onClick={handleConfirmOrder}
+                    disabled={isCreatingOrder}
+                  >
+                    {isCreatingOrder ? (
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    ) : (
+                      <CreditCard className="mr-2 h-5 w-5" />
+                    )}
+                    Confirmer la commande
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Rental Days Setting */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  Durée de location
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4">
-                  <Label htmlFor="rental-days" className="whitespace-nowrap">Nombre de jours :</Label>
-                  <Input
-                    id="rental-days"
-                    type="number"
-                    min="1"
-                    max="30"
-                    value={rentalDays}
-                    onChange={(e) => setRentalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-24"
-                  />
-                  <span className="text-muted-foreground">jour(s)</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Invoice Display */}
-            <InvoiceDisplay
-              eventData={eventData}
-              selectedProducts={getSelectedProductsWithDetails()}
-              rentalDays={rentalDays}
-            />
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="flex-1 h-14"
-                onClick={handleCreateChatRoom}
-                disabled={isCreatingRoom}
-              >
-                {isCreatingRoom ? (
-                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                ) : (
-                  <MessageSquare className="mr-2 h-5 w-5" />
-                )}
-                Discuter avec les prestataires
-              </Button>
-              
-              <Button 
-                size="lg" 
-                className="flex-1 h-14 bg-green-600 hover:bg-green-700"
-                onClick={handleCreateGlobalOrder}
-                disabled={isCreatingOrder}
-              >
-                {isCreatingOrder ? (
-                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                ) : (
-                  <CreditCard className="mr-2 h-5 w-5" />
-                )}
-                Commander tout
-              </Button>
-            </div>
+              </>
+            )}
           </div>
         )}
 
         {step === 'chat' && eventData && (
-          <div className="space-y-4">
-            <EventPlannerChat
-              eventContext={{
-                eventType: eventData.eventType,
-                budgetMin: eventData.budgetMin,
-                budgetMax: eventData.budgetMax,
-                guestCount: eventData.guestCount,
-                eventDate: eventData.eventDate,
-                eventLocation: eventData.eventLocation,
-                servicesNeeded: eventData.servicesNeeded,
-              }}
-              onSelectProducts={setSelectedProductIds}
-              selectedProductIds={selectedProductIds}
-            />
-
-            {selectedProductIds.length > 0 && (
-              <Card className="border-2 border-primary/30 bg-primary/5">
-                <CardContent className="py-4">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
-                        <Check className="h-6 w-6 text-green-600" />
-                      </div>
-                      <span className="font-semibold text-lg">
-                        {selectedProductIds.length} prestataire(s) sélectionné(s)
-                      </span>
-                    </div>
-                    <Button 
-                      size="lg" 
-                      className="w-full sm:w-auto h-12 text-base"
-                      onClick={handleCreateChatRoom} 
-                      disabled={isCreatingRoom}
-                    >
-                      {isCreatingRoom ? (
-                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                      ) : (
-                        <MessageSquare className="h-5 w-5 mr-2" />
-                      )}
-                      Créer le groupe de discussion
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <EventPlannerChat
+            eventContext={{
+              eventType: eventData.eventType,
+              budgetMin: eventData.budgetMin,
+              budgetMax: eventData.budgetMax,
+              guestCount: eventData.guestCount,
+              eventDate: eventData.eventDate,
+              eventLocation: eventData.eventLocation,
+              servicesNeeded: eventData.servicesNeeded,
+            }}
+            onSelectProducts={() => {}}
+            selectedProductIds={invoiceProducts.map(p => p.id)}
+          />
         )}
 
         {step === 'room' && chatRoomId && (
