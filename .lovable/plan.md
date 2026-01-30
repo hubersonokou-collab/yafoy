@@ -1,162 +1,162 @@
 
-# Plan: Notifications et Panier Global dans la Planification d'Événements
+
+# Plan: Paiement Global avec Confirmation Individuelle des Prestataires
 
 ## Résumé
 
-Ce plan couvre deux fonctionnalités majeures :
-
-1. **Cloche de notifications fonctionnelle** - Remplacer le badge statique "3" par un système de notifications réel connecté à la base de données
-2. **Panier/Facture globale après les recommandations** - Améliorer le flux de planification pour montrer une facture globale au client et envoyer automatiquement des notifications aux prestataires
-
----
-
-## 1. Système de Notifications
-
-### Situation actuelle
-- La cloche affiche un badge statique "3" sans connexion à la base de données
-- La table `notifications` existe mais est vide
-- Aucun hook ni composant pour gérer les notifications
-
-### Changements proposés
-
-#### 1.1 Créer un hook `useNotifications`
-Fichier: `src/hooks/useNotifications.ts`
-
-- Récupérer les notifications de l'utilisateur connecté depuis Supabase
-- Écouter en temps réel les nouvelles notifications avec `realtime`
-- Fournir des fonctions pour marquer comme lu et supprimer
-- Compter les notifications non lues
-
-#### 1.2 Créer un composant `NotificationPopover`
-Fichier: `src/components/notifications/NotificationPopover.tsx`
-
-- Afficher la liste des notifications dans un popover
-- Icônes différentes selon le type (commande, message, avis)
-- Bouton "Marquer tout comme lu"
-- Navigation vers la ressource concernée au clic
-- Badge avec le nombre de notifications non lues
-
-#### 1.3 Intégrer dans le DashboardLayout
-Fichier: `src/components/dashboard/DashboardLayout.tsx`
-
-- Remplacer le bouton statique par le nouveau `NotificationPopover`
+Ce plan implémente un système où :
+1. Le client paie la facture **globalement** (un seul paiement pour tous les prestataires)
+2. Chaque prestataire doit **confirmer individuellement** sa partie de la commande dans son compte
+3. Les commandes restent séparées mais liées par un identifiant de groupe
 
 ---
 
-## 2. Panier et Facture Globale
+## Situation Actuelle
 
-### Situation actuelle
-- Le client sélectionne des produits après les recommandations
-- L'`InvoiceDisplay` montre une facture pro forma globale
-- `handleCreateGlobalOrder` crée des commandes séparées par prestataire
-- Aucune notification n'est envoyée aux prestataires
-
-### Changements proposés
-
-#### 2.1 Améliorer le flux du panier
-Le flux actuel est déjà bien structuré :
-- `recommendations` → sélection de produits
-- `invoice` → affichage de la facture globale avec frais de service (5%)
-
-Amélioration : Ajouter un récapitulatif par prestataire dans la facture pour plus de transparence.
-
-#### 2.2 Envoyer des notifications aux prestataires
-Fichier: `src/pages/client/ClientEventPlanner.tsx`
-
-Modifier `handleCreateGlobalOrder` pour :
-- Après création de chaque commande, insérer une notification pour le prestataire concerné
-- Inclure les détails de la commande (type d'événement, date, montant)
-
-Structure de la notification :
-```text
-type: 'new_order'
-title: 'Nouvelle commande reçue'
-body: 'Commande pour [Événement] - [Montant] FCFA'
-data: { order_id, event_type, client_id }
-```
-
-#### 2.3 Afficher le récapitulatif par prestataire
-Fichier: `src/components/event-planner/InvoiceDisplay.tsx`
-
-Ajouter une section "Détail par prestataire" montrant :
-- Nom du prestataire (si disponible)
-- Liste des produits de ce prestataire
-- Sous-total par prestataire
+- Le client voit une facture globale avec tous les prestataires
+- En cliquant "Confirmer la commande", des commandes séparées sont créées pour chaque prestataire
+- Chaque prestataire peut déjà accepter/refuser les commandes via `OrderActions`
+- Le paiement Paystack fonctionne mais uniquement pour une commande individuelle
 
 ---
 
-## Détails Techniques
+## Changements Proposés
 
-### Base de données
-Aucune migration nécessaire - la table `notifications` est déjà prête :
-- `user_id` : UUID du destinataire
-- `type` : type de notification ('new_order', 'order_update', 'new_message', 'new_review')
-- `title` : titre de la notification
-- `body` : description détaillée
-- `read` : boolean (lu/non lu)
-- `data` : JSONB pour les métadonnées
+### 1. Ajouter un Identifiant de Groupe de Commandes
 
-Problème RLS identifié : Actuellement, les utilisateurs ne peuvent pas INSÉRER de notifications car il n'y a pas de politique INSERT. Il faudra ajouter une politique permettant aux utilisateurs authentifiés d'insérer des notifications pour d'autres utilisateurs (ou utiliser une edge function avec le service role).
+Créer un champ pour lier les commandes issues de la même planification d'événement.
 
-**Solution proposée** : Créer une edge function `create-notification` qui utilise le service role pour insérer les notifications.
+**Migration SQL** :
+- Ajouter une colonne `group_id` à la table `orders` pour lier les commandes du même événement
 
-### Fichiers à créer
+### 2. Modifier le Flux de Paiement Global
+
+**Fichier** : `src/pages/client/ClientEventPlanner.tsx`
+
+Après confirmation de la facture :
+1. Créer toutes les commandes individuelles avec un `group_id` commun
+2. Calculer le total global (sous-total + 5% frais de service)
+3. Afficher un dialogue de paiement avec le montant total
+4. Rediriger vers Paystack pour payer le montant global
+5. Une fois le paiement confirmé, les commandes passent en statut "pending" (en attente de confirmation prestataire)
+
+### 3. Créer un Composant de Paiement Global
+
+**Fichier** : `src/components/payment/GlobalPaymentDialog.tsx`
+
+Ce composant affiche :
+- Le récapitulatif des commandes par prestataire
+- Le sous-total, les frais de service (5%), et le total TTC
+- Le bouton de paiement Paystack pour le montant total
+- Une indication que chaque prestataire devra confirmer sa partie
+
+### 4. Mettre à Jour l'Edge Function Paystack
+
+**Fichier** : `supabase/functions/paystack/index.ts`
+
+Ajouter la gestion du paiement groupé :
+- Accepter une liste d'IDs de commandes (`orderIds`) au lieu d'un seul
+- Vérifier que l'utilisateur possède toutes les commandes
+- Après paiement réussi, mettre à jour le `deposit_paid` sur toutes les commandes
+- Envoyer une notification à chaque prestataire pour confirmer
+
+### 5. Interface Prestataire - Confirmation Individuelle
+
+L'interface prestataire (`ProviderOrders.tsx`) fonctionne déjà correctement :
+- Les prestataires voient leurs commandes en statut "pending"
+- Ils peuvent cliquer "Accepter" ou "Refuser" via `OrderActions`
+- Aucun changement nécessaire - le système actuel convient parfaitement
+
+### 6. Notifications aux Prestataires
+
+Après le paiement global réussi, envoyer une notification à chaque prestataire :
+- Type : `new_order`
+- Message : "Nouvelle commande payée - Confirmation requise"
+- Inclure les détails : montant, type d'événement, date
+
+---
+
+## Fichiers à Créer
 
 | Fichier | Description |
 |---------|-------------|
-| `src/hooks/useNotifications.ts` | Hook pour gérer les notifications |
-| `src/components/notifications/NotificationPopover.tsx` | Composant popover des notifications |
-| `src/components/notifications/NotificationItem.tsx` | Composant pour chaque notification |
-| `src/components/notifications/index.ts` | Exports du module |
-| `supabase/functions/create-notification/index.ts` | Edge function pour créer des notifications |
+| `src/components/payment/GlobalPaymentDialog.tsx` | Dialogue de paiement pour plusieurs commandes |
 
-### Fichiers à modifier
+## Fichiers à Modifier
 
 | Fichier | Changement |
 |---------|------------|
-| `src/components/dashboard/DashboardLayout.tsx` | Remplacer la cloche statique par `NotificationPopover` |
-| `src/pages/client/ClientEventPlanner.tsx` | Appeler l'edge function pour notifier les prestataires |
-| `src/components/event-planner/InvoiceDisplay.tsx` | Ajouter le récapitulatif par prestataire |
+| `src/pages/client/ClientEventPlanner.tsx` | Intégrer le paiement global après confirmation |
+| `supabase/functions/paystack/index.ts` | Gérer les paiements groupés |
 
-### Responsivité
-Tous les composants seront conçus pour :
-- Desktop : Popover aligné à droite
-- Mobile : Popover prenant plus de largeur (w-80 → w-[90vw] max-w-sm)
-- Liste scrollable avec hauteur maximale
+## Migration SQL
+
+```text
+ALTER TABLE orders ADD COLUMN group_id uuid;
+CREATE INDEX idx_orders_group_id ON orders(group_id);
+```
 
 ---
 
 ## Flux Utilisateur Final
 
 ```text
-1. Client planifie un événement
-                ↓
-2. Système recommande des produits
-                ↓
-3. Client sélectionne les produits souhaités
-                ↓
-4. Client voit la FACTURE GLOBALE avec :
-   - Récapitulatif de l'événement
-   - Liste de tous les produits
-   - Détail par prestataire
-   - Sous-total + Frais 5% + Total TTC
-                ↓
-5. Client clique "Commander tout"
-                ↓
-6. Système crée une commande PAR prestataire
-                ↓
-7. Chaque prestataire reçoit une NOTIFICATION
-                ↓
-8. Client est redirigé vers "Mes commandes"
+1. Client remplit le formulaire de planification
+                    ↓
+2. Facture pro forma générée (éditable)
+                    ↓
+3. Client clique "Payer la commande"
+                    ↓
+4. Dialogue de paiement global s'affiche :
+   - Récapitulatif par prestataire
+   - Total avec frais de service (5%)
+   - Bouton "Payer [X] FCFA"
+                    ↓
+5. Redirection vers Paystack (paiement unique)
+                    ↓
+6. Après paiement réussi :
+   - Commandes créées avec statut "pending"
+   - Notifications envoyées aux prestataires
+   - Client redirigé vers "Mes commandes"
+                    ↓
+7. Chaque PRESTATAIRE voit la commande dans son compte
+                    ↓
+8. Prestataire clique "Accepter" → statut "confirmed"
+   ou "Refuser" → statut "cancelled"
 ```
+
+---
+
+## Détails Techniques
+
+### Gestion du Paiement Groupé
+
+Le paiement Paystack sera initialisé avec :
+- Un `group_id` unique (UUID)
+- Le montant total de toutes les commandes + frais de service
+- Les métadonnées contenant tous les `order_id` concernés
+
+### Après Vérification du Paiement
+
+L'edge function `paystack/verify` :
+1. Récupère tous les `order_id` depuis les métadonnées
+2. Met à jour `deposit_paid` sur chaque commande
+3. Envoie les notifications aux prestataires via `create-notification`
+
+### Sécurité
+
+- Vérification JWT pour toutes les opérations
+- Le client ne peut payer que ses propres commandes
+- Les prestataires ne peuvent confirmer que leurs propres commandes
+- Les politiques RLS existantes protègent déjà les opérations
 
 ---
 
 ## Résumé des Livrables
 
-1. **Notifications fonctionnelles** : Cloche avec badge dynamique, popover listant les notifications, temps réel
-2. **Edge function sécurisée** : Pour créer des notifications entre utilisateurs
-3. **Facture améliorée** : Récapitulatif par prestataire dans la facture globale
-4. **Alertes prestataires** : Notification automatique à chaque prestataire lors d'une nouvelle commande
-5. **Design responsive** : Tous les composants adaptés mobile et desktop
+1. **Paiement global** : Un seul paiement Paystack pour toutes les commandes
+2. **Commandes liées** : Toutes les commandes partagent un `group_id`
+3. **Confirmation individuelle** : Chaque prestataire confirme sa commande séparément
+4. **Notifications** : Les prestataires sont notifiés après le paiement
+5. **Suivi client** : Le client peut suivre l'état de confirmation de chaque prestataire
 
