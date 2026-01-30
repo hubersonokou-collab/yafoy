@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EventPlannerChat } from '@/components/event-planner';
 import { AccessibleEventPlanner } from '@/components/event-planner/AccessibleEventPlanner';
 import { EditableInvoice } from '@/components/event-planner/EditableInvoice';
+import { GlobalPaymentDialog } from '@/components/payment/GlobalPaymentDialog';
 import { ChatRoomView } from '@/components/chat';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -56,6 +57,20 @@ interface RecommendedProduct {
   rental_days: number;
 }
 
+interface OrderSummary {
+  orderId: string;
+  providerId: string;
+  providerName: string;
+  amount: number;
+  items: {
+    name: string;
+    quantity: number;
+    rentalDays: number;
+    pricePerDay: number;
+    subtotal: number;
+  }[];
+}
+
 const EVENT_TYPE_ICONS: Record<string, React.ElementType> = {
   mariage: Heart,
   bapteme: Baby,
@@ -90,6 +105,7 @@ const SERVICE_CATEGORY_MAP: Record<string, string[]> = {
 const ClientEventPlanner = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   
   const [step, setStep] = useState<'form' | 'invoice' | 'chat' | 'room'>('form');
@@ -102,12 +118,74 @@ const ClientEventPlanner = () => {
   const [invoiceProducts, setInvoiceProducts] = useState<RecommendedProduct[]>([]);
   const [loadingInvoice, setLoadingInvoice] = useState(false);
   const [rentalDays, setRentalDays] = useState(1);
+  
+  // Payment state
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [orderSummaries, setOrderSummaries] = useState<OrderSummary[]>([]);
+  const [groupId, setGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
+
+  // Handle payment callback
+  useEffect(() => {
+    const reference = searchParams.get('reference') || searchParams.get('trxref');
+    if (reference) {
+      verifyGroupPayment(reference);
+    }
+  }, [searchParams]);
+
+  const verifyGroupPayment = async (reference: string) => {
+    setIsCreatingOrder(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.access_token) {
+        throw new Error('Session non valide');
+      }
+
+      const { data, error } = await supabase.functions.invoke('paystack/verify-group', {
+        body: { reference },
+        headers: {
+          Authorization: `Bearer ${session.session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({
+          title: 'Paiement réussi !',
+          description: `${data.ordersUpdated} commande(s) envoyée(s) aux prestataires`,
+          className: 'bg-green-600 text-white',
+        });
+
+        // Clear URL params and redirect
+        window.history.replaceState({}, '', window.location.pathname);
+        navigate('/client/orders');
+      } else {
+        toast({
+          title: 'Paiement échoué',
+          description: 'Le paiement n\'a pas été validé. Veuillez réessayer.',
+          variant: 'destructive',
+        });
+        // Clear URL params
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch (error) {
+      console.error('Error verifying payment:', error);
+      toast({
+        title: 'Erreur de vérification',
+        description: "Impossible de vérifier le paiement",
+        variant: 'destructive',
+      });
+      window.history.replaceState({}, '', window.location.pathname);
+    } finally {
+      setIsCreatingOrder(false);
+    }
+  };
 
   const generateInvoice = async (data: EventFormData) => {
     setLoadingInvoice(true);
@@ -279,6 +357,9 @@ const ClientEventPlanner = () => {
 
     setIsCreatingOrder(true);
     try {
+      // Generate a unique group ID for this set of orders
+      const newGroupId = crypto.randomUUID();
+      
       // Group products by provider
       const productsByProvider = invoiceProducts.reduce((acc, product) => {
         if (!acc[product.provider_id]) {
@@ -291,9 +372,9 @@ const ClientEventPlanner = () => {
         return acc;
       }, {} as Record<string, { products: RecommendedProduct[]; providerName: string }>);
 
-      const createdOrders: { orderId: string; providerId: string; providerName: string; amount: number }[] = [];
+      const createdOrders: OrderSummary[] = [];
 
-      // Create an order for each provider
+      // Create an order for each provider with the shared group_id
       for (const [providerId, { products, providerName }] of Object.entries(productsByProvider)) {
         const subtotal = products.reduce((sum, p) => sum + (p.price_per_day * p.rental_days * p.quantity), 0);
         
@@ -308,6 +389,7 @@ const ClientEventPlanner = () => {
             event_date: eventData?.eventDate || null,
             event_location: eventData?.eventLocation || null,
             notes: `Commande groupée - ${EVENT_TYPE_LABELS[eventData?.eventType || 'autre']}${eventData?.eventName ? ` - ${eventData.eventName}` : ''}`,
+            group_id: newGroupId,
           })
           .select()
           .single();
@@ -315,6 +397,7 @@ const ClientEventPlanner = () => {
         if (orderError) throw orderError;
 
         // Create order items
+        const orderItems: OrderSummary['items'] = [];
         for (const product of products) {
           const { error: itemError } = await supabase
             .from('order_items')
@@ -328,6 +411,14 @@ const ClientEventPlanner = () => {
             });
 
           if (itemError) throw itemError;
+
+          orderItems.push({
+            name: product.name,
+            quantity: product.quantity,
+            rentalDays: product.rental_days,
+            pricePerDay: product.price_per_day,
+            subtotal: product.price_per_day * product.rental_days * product.quantity,
+          });
         }
 
         createdOrders.push({
@@ -335,6 +426,7 @@ const ClientEventPlanner = () => {
           providerId,
           providerName,
           amount: subtotal,
+          items: orderItems,
         });
       }
 
@@ -343,43 +435,15 @@ const ClientEventPlanner = () => {
         .from('event_planning_requests')
         .update({
           ai_recommendations: invoiceProducts.map(p => p.id),
-          status: 'confirmed',
+          status: 'pending_payment',
         })
         .eq('id', eventPlanningId);
 
-      // Send notifications to all providers via edge function
-      try {
-        const notifications = createdOrders.map(order => ({
-          user_id: order.providerId,
-          type: 'new_order',
-          title: 'Nouvelle commande reçue',
-          body: `Commande pour ${EVENT_TYPE_LABELS[eventData?.eventType || 'autre']} - ${order.amount.toLocaleString()} FCFA`,
-          data: {
-            order_id: order.orderId,
-            event_type: eventData?.eventType,
-            client_id: user.id,
-            amount: order.amount,
-          },
-        }));
+      // Set state and show payment dialog
+      setGroupId(newGroupId);
+      setOrderSummaries(createdOrders);
+      setShowPaymentDialog(true);
 
-        const { error: notifError } = await supabase.functions.invoke('create-notification', {
-          body: { notifications },
-        });
-
-        if (notifError) {
-          console.error('Error sending notifications:', notifError);
-        }
-      } catch (notifErr) {
-        console.error('Failed to send provider notifications:', notifErr);
-      }
-
-      toast({
-        title: 'Commandes envoyées',
-        description: `${createdOrders.length} commande(s) séparée(s) envoyée(s) aux prestataires`,
-        className: 'bg-success text-success-foreground',
-      });
-
-      navigate('/client/orders');
     } catch (error) {
       console.error('Error creating orders:', error);
       toast({
@@ -642,7 +706,7 @@ const ClientEventPlanner = () => {
                     ) : (
                       <CreditCard className="mr-2 h-5 w-5" />
                     )}
-                    Confirmer la commande
+                    Payer la commande
                   </Button>
                 </div>
               </>
@@ -670,6 +734,19 @@ const ClientEventPlanner = () => {
           <div className="h-[600px] rounded-xl overflow-hidden border">
             <ChatRoomView roomId={chatRoomId} participants={participants} />
           </div>
+        )}
+
+        {/* Global Payment Dialog */}
+        {groupId && (
+          <GlobalPaymentDialog
+            open={showPaymentDialog}
+            onOpenChange={setShowPaymentDialog}
+            orders={orderSummaries}
+            groupId={groupId}
+            eventType={eventData?.eventType}
+            eventDate={eventData?.eventDate}
+            eventLocation={eventData?.eventLocation}
+          />
         )}
       </div>
     </DashboardLayout>
