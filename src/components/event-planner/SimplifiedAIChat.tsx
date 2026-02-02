@@ -29,7 +29,13 @@ import {
   Calendar,
   Plus,
   CheckCircle2,
-  X
+  X,
+  Music,
+  Lightbulb,
+  UtensilsCrossed,
+  Truck,
+  Camera,
+  ChefHat
 } from 'lucide-react';
 
 interface SimplifiedAIChatProps {
@@ -63,8 +69,12 @@ const EVENT_TYPES: EventType[] = [
 const SERVICE_ACTIONS: QuickAction[] = [
   { id: 'decoration', label: 'Décoration', icon: Sparkles, message: 'Je cherche de la décoration' },
   { id: 'mobilier', label: 'Mobilier', icon: ShoppingCart, message: 'Je cherche du mobilier (tables, chaises)' },
-  { id: 'photo', label: 'Photographe', icon: Star, message: 'Je cherche un photographe' },
-  { id: 'son', label: 'Sonorisation', icon: Sparkles, message: 'Je cherche de la sonorisation' },
+  { id: 'sonorisation', label: 'Sonorisation', icon: Music, message: 'Je cherche de la sonorisation' },
+  { id: 'eclairage', label: 'Éclairage', icon: Lightbulb, message: 'Je cherche de l\'éclairage' },
+  { id: 'vaisselle', label: 'Vaisselle', icon: UtensilsCrossed, message: 'Je cherche de la vaisselle' },
+  { id: 'transport', label: 'Transport', icon: Truck, message: 'Je cherche du transport' },
+  { id: 'photo', label: 'Photographie', icon: Camera, message: 'Je cherche un photographe' },
+  { id: 'traiteur', label: 'Traiteur', icon: ChefHat, message: 'Je cherche un traiteur' },
 ];
 
 const getImageUrl = (imagePath: string | null): string | null => {
@@ -85,6 +95,7 @@ export const SimplifiedAIChat = ({ onProductSelect, onReserve, standalone = fals
   const [chatStep, setChatStep] = useState<ChatStep>('greeting');
   const [selectedEvent, setSelectedEvent] = useState<string>('');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [rentalDays, setRentalDays] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -157,15 +168,36 @@ export const SimplifiedAIChat = ({ onProductSelect, onReserve, standalone = fals
     setChatStep('service');
   };
 
-  const handleServiceSelect = (action: QuickAction) => {
+  const handleServiceToggle = (serviceId: string) => {
+    setSelectedServices(prev => 
+      prev.includes(serviceId) 
+        ? prev.filter(id => id !== serviceId)
+        : [...prev, serviceId]
+    );
+  };
+
+  const handleConfirmServices = () => {
+    if (selectedServices.length === 0) return;
+    
+    const selectedLabels = SERVICE_ACTIONS
+      .filter(a => selectedServices.includes(a.id))
+      .map(a => a.label)
+      .join(', ');
+    
     setBotMessages(prev => [
       ...prev, 
-      { text: action.label, isBot: false },
+      { text: selectedLabels, isBot: false },
       { text: 'Combien de jours pour l\'événement ?', isBot: true }
     ]);
     setChatStep('days');
-    // Trigger AI search with context
-    sendMessage(`Je prépare un ${selectedEvent}. ${action.message}.`);
+    
+    // Build message with all selected services
+    const serviceMessages = SERVICE_ACTIONS
+      .filter(a => selectedServices.includes(a.id))
+      .map(a => a.message)
+      .join('. ');
+    
+    sendMessage(`Je prépare un ${selectedEvent}. ${serviceMessages}.`);
   };
 
   const handleDaysSelect = (days: number) => {
@@ -385,22 +417,39 @@ export const SimplifiedAIChat = ({ onProductSelect, onReserve, standalone = fals
             )}
 
             {chatStep === 'service' && (
-              <div className="grid grid-cols-2 gap-2 mt-4">
-                {SERVICE_ACTIONS.map((action) => {
-                  const Icon = action.icon;
-                  return (
-                    <Button
-                      key={action.id}
-                      variant="outline"
-                      size="sm"
-                      className="h-auto py-3 flex flex-col items-center gap-2 rounded-xl"
-                      onClick={() => handleServiceSelect(action)}
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span className="text-xs">{action.label}</span>
-                    </Button>
-                  );
-                })}
+              <div className="space-y-3 mt-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {SERVICE_ACTIONS.map((action) => {
+                    const Icon = action.icon;
+                    const isSelected = selectedServices.includes(action.id);
+                    return (
+                      <Button
+                        key={action.id}
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "h-auto py-3 flex flex-col items-center gap-2 rounded-xl transition-all relative",
+                          isSelected && "border-primary bg-primary/10"
+                        )}
+                        onClick={() => handleServiceToggle(action.id)}
+                      >
+                        {isSelected && (
+                          <CheckCircle2 className="absolute top-2 right-2 h-4 w-4 text-primary" />
+                        )}
+                        <Icon className="h-5 w-5" />
+                        <span className="text-xs">{action.label}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+                {selectedServices.length > 0 && (
+                  <Button
+                    className="w-full"
+                    onClick={handleConfirmServices}
+                  >
+                    Continuer ({selectedServices.length} service{selectedServices.length > 1 ? 's' : ''})
+                  </Button>
+                )}
               </div>
             )}
 
