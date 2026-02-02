@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -105,6 +105,7 @@ const SERVICE_CATEGORY_MAP: Record<string, string[]> = {
 const ClientEventPlanner = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   
@@ -123,6 +124,128 @@ const ClientEventPlanner = () => {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [orderSummaries, setOrderSummaries] = useState<OrderSummary[]>([]);
   const [groupId, setGroupId] = useState<string | null>(null);
+
+  // Détection des données venant du bot
+  useEffect(() => {
+    const handleBotData = async () => {
+      if (location.state?.fromBot && user) {
+        const botData = location.state as {
+          fromBot: boolean;
+          selectedProductIds: string[];
+          recommendedProducts: any[];
+          eventType: string;
+          rentalDays: number;
+          servicesNeeded: string[];
+        };
+        
+        setLoadingInvoice(true);
+        
+        try {
+          // Créer les données d'événement par défaut
+          const eventFormData: EventFormData = {
+            eventType: botData.eventType || 'autre',
+            eventName: '',
+            budgetMin: 0,
+            budgetMax: 10000000,
+            guestCount: 50,
+            eventDate: '',
+            eventLocation: '',
+            servicesNeeded: botData.servicesNeeded || [],
+            additionalNotes: 'Réservation via assistant IA',
+          };
+          
+          setEventData(eventFormData);
+          
+          // Récupérer les détails complets des produits depuis la base de données
+          const productIds = botData.selectedProductIds;
+          
+          const { data: products } = await supabase
+            .from('products')
+            .select(`
+              id,
+              name,
+              price_per_day,
+              location,
+              images,
+              is_verified,
+              category_id,
+              provider_id,
+              categories:category_id(name)
+            `)
+            .in('id', productIds);
+          
+          if (products && products.length > 0) {
+            // Récupérer les noms des prestataires
+            const providerIds = [...new Set(products.map(p => p.provider_id))];
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('user_id, full_name')
+              .in('user_id', providerIds);
+            
+            const providerNameMap: Record<string, string> = {};
+            (profiles || []).forEach(profile => {
+              providerNameMap[profile.user_id] = profile.full_name || 'Prestataire';
+            });
+            
+            // Convertir en RecommendedProduct
+            const invoiceData: RecommendedProduct[] = products.map(p => ({
+              id: p.id,
+              name: p.name,
+              price_per_day: p.price_per_day,
+              location: p.location,
+              images: p.images,
+              is_verified: p.is_verified,
+              category_name: (p.categories as any)?.name,
+              category_id: p.category_id,
+              provider_id: p.provider_id,
+              provider_name: providerNameMap[p.provider_id] || 'Prestataire',
+              quantity: 1,
+              rental_days: botData.rentalDays || 1,
+            }));
+            
+            // Sauvegarder la demande d'événement
+            const { data: eventPlanning, error } = await supabase
+              .from('event_planning_requests')
+              .insert({
+                user_id: user.id,
+                event_type: (eventFormData.eventType as any) || 'autre',
+                event_name: eventFormData.eventName || null,
+                budget_min: eventFormData.budgetMin,
+                budget_max: eventFormData.budgetMax,
+                guest_count: eventFormData.guestCount,
+                event_date: eventFormData.eventDate || null,
+                event_location: eventFormData.eventLocation || null,
+                services_needed: eventFormData.servicesNeeded,
+                additional_notes: eventFormData.additionalNotes || null,
+                status: 'draft',
+              })
+              .select()
+              .single();
+            
+            if (!error && eventPlanning) {
+              setEventPlanningId(eventPlanning.id);
+            }
+            
+            setInvoiceProducts(invoiceData);
+            setStep('invoice');
+          }
+        } catch (error) {
+          console.error('Error loading bot data:', error);
+          toast({
+            title: 'Erreur',
+            description: "Impossible de charger les données du bot",
+            variant: 'destructive',
+          });
+        } finally {
+          setLoadingInvoice(false);
+          // Nettoyer le state
+          window.history.replaceState({}, document.title);
+        }
+      }
+    };
+    
+    handleBotData();
+  }, [location.state, user]);
 
   useEffect(() => {
     if (!authLoading && !user) {
