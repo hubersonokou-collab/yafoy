@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -34,11 +34,12 @@ import {
   ShieldCheck,
   ShieldX,
   Users,
-  UserX,
-  UserCheck,
+  Settings,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { usePagination } from '@/hooks/usePagination';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 interface Report {
   id: string;
@@ -78,6 +79,7 @@ interface ProviderProfile {
 const ModeratorDashboard = () => {
   const { user, loading: authLoading, isModerator, isAdmin, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [reports, setReports] = useState<Report[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [providers, setProviders] = useState<ProviderProfile[]>([]);
@@ -89,6 +91,16 @@ const ModeratorDashboard = () => {
     resolvedReports: 0,
     totalProviders: 0,
   });
+
+  // Tab management with URL params
+  const currentTab = searchParams.get('tab') || 'reports';
+  const setCurrentTab = (tab: string) => {
+    setSearchParams({ tab });
+  };
+
+  // Pagination for each section
+  const reportsPagination = usePagination(reports, { itemsPerPage: 10 });
+  const providersPagination = usePagination(providers, { itemsPerPage: 10 });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -112,8 +124,7 @@ const ModeratorDashboard = () => {
       const { data: reportsData, error: reportsError } = await supabase
         .from('reports')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
+        .order('created_at', { ascending: false });
 
       if (reportsError) throw reportsError;
       setReports(reportsData || []);
@@ -123,8 +134,7 @@ const ModeratorDashboard = () => {
         .from('products')
         .select('*')
         .eq('is_verified', false)
-        .order('created_at', { ascending: false })
-        .limit(50);
+        .order('created_at', { ascending: false });
 
       if (productsError) throw productsError;
       setProducts(productsData || []);
@@ -258,8 +268,11 @@ const ModeratorDashboard = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setCurrentTab('reports')}
+          >
             <CardContent className="flex items-center gap-4 p-6">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-100 text-yellow-600">
                 <Flag className="h-6 w-6" />
@@ -271,7 +284,10 @@ const ModeratorDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setCurrentTab('products')}
+          >
             <CardContent className="flex items-center gap-4 p-6">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
                 <Package className="h-6 w-6" />
@@ -279,6 +295,21 @@ const ModeratorDashboard = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Produits à vérifier</p>
                 <p className="text-2xl font-bold">{stats.unverifiedProducts}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setCurrentTab('providers')}
+          >
+            <CardContent className="flex items-center gap-4 p-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
+                <Users className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Prestataires</p>
+                <p className="text-2xl font-bold">{stats.totalProviders}</p>
               </div>
             </CardContent>
           </Card>
@@ -297,7 +328,7 @@ const ModeratorDashboard = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="reports" className="space-y-4">
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
           <TabsList>
             <TabsTrigger value="reports" className="gap-2">
               <Flag className="h-4 w-4" />
@@ -310,6 +341,10 @@ const ModeratorDashboard = () => {
             <TabsTrigger value="providers" className="gap-2">
               <Users className="h-4 w-4" />
               Prestataires ({stats.totalProviders})
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="gap-2">
+              <Settings className="h-4 w-4" />
+              Paramètres
             </TabsTrigger>
           </TabsList>
 
@@ -327,83 +362,95 @@ const ModeratorDashboard = () => {
                     Aucun signalement
                   </p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Statut</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {reports.map((report) => (
-                        <TableRow key={report.id}>
-                          <TableCell>
-                            {format(new Date(report.created_at), 'dd MMM yyyy', { locale: fr })}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{report.type}</Badge>
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate">
-                            {report.description || '-'}
-                          </TableCell>
-                          <TableCell>{getReportStatusBadge(report.status)}</TableCell>
-                          <TableCell>
-                            {report.status === 'pending' ? (
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button size="sm" variant="outline" className="gap-1">
-                                    <Eye className="h-4 w-4" />
-                                    Traiter
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                  <DialogHeader>
-                                    <DialogTitle>Traiter le signalement</DialogTitle>
-                                  </DialogHeader>
-                                  <div className="space-y-4">
-                                    <div>
-                                      <p className="text-sm text-muted-foreground mb-2">Description</p>
-                                      <p>{report.description || 'Aucune description'}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-sm text-muted-foreground mb-2">Notes de résolution</p>
-                                      <Textarea
-                                        value={resolutionNotes}
-                                        onChange={(e) => setResolutionNotes(e.target.value)}
-                                        placeholder="Ajoutez vos notes..."
-                                      />
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        className="flex-1 gap-1"
-                                        onClick={() => handleReportAction(report.id, 'resolve', resolutionNotes)}
-                                      >
-                                        <CheckCircle className="h-4 w-4" />
-                                        Résoudre
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        className="flex-1 gap-1"
-                                        onClick={() => handleReportAction(report.id, 'dismiss', resolutionNotes)}
-                                      >
-                                        <XCircle className="h-4 w-4" />
-                                        Rejeter
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">Traité</span>
-                            )}
-                          </TableCell>
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Statut</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {reportsPagination.paginatedItems.map((report) => (
+                          <TableRow key={report.id}>
+                            <TableCell>
+                              {format(new Date(report.created_at), 'dd MMM yyyy', { locale: fr })}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{report.type}</Badge>
+                            </TableCell>
+                            <TableCell className="max-w-xs truncate">
+                              {report.description || '-'}
+                            </TableCell>
+                            <TableCell>{getReportStatusBadge(report.status)}</TableCell>
+                            <TableCell>
+                              {report.status === 'pending' ? (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button size="sm" variant="outline" className="gap-1">
+                                      <Eye className="h-4 w-4" />
+                                      Traiter
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Traiter le signalement</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4">
+                                      <div>
+                                        <p className="text-sm text-muted-foreground mb-2">Description</p>
+                                        <p>{report.description || 'Aucune description'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-sm text-muted-foreground mb-2">Notes de résolution</p>
+                                        <Textarea
+                                          value={resolutionNotes}
+                                          onChange={(e) => setResolutionNotes(e.target.value)}
+                                          placeholder="Ajoutez vos notes..."
+                                        />
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Button
+                                          className="flex-1 gap-1"
+                                          onClick={() => handleReportAction(report.id, 'resolve', resolutionNotes)}
+                                        >
+                                          <CheckCircle className="h-4 w-4" />
+                                          Résoudre
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          className="flex-1 gap-1"
+                                          onClick={() => handleReportAction(report.id, 'dismiss', resolutionNotes)}
+                                        >
+                                          <XCircle className="h-4 w-4" />
+                                          Rejeter
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">Traité</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <PaginationControls
+                      currentPage={reportsPagination.currentPage}
+                      totalPages={reportsPagination.totalPages}
+                      startIndex={reportsPagination.startIndex}
+                      endIndex={reportsPagination.endIndex}
+                      totalItems={reportsPagination.totalItems}
+                      onPreviousPage={reportsPagination.goToPreviousPage}
+                      onNextPage={reportsPagination.goToNextPage}
+                      onGoToPage={reportsPagination.goToPage}
+                    />
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -424,7 +471,7 @@ const ModeratorDashboard = () => {
                   </p>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {products.map((product) => (
+                    {products.slice(0, 12).map((product) => (
                       <Card key={product.id} className="overflow-hidden">
                         {product.images && product.images.length > 0 && (
                           <div className="aspect-video overflow-hidden">
@@ -485,64 +532,78 @@ const ModeratorDashboard = () => {
                     Aucun prestataire
                   </p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Prestataire</TableHead>
-                        <TableHead>Téléphone</TableHead>
-                        <TableHead>Localisation</TableHead>
-                        <TableHead>Inscription</TableHead>
-                        <TableHead>Produits</TableHead>
-                        <TableHead>Statut</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {providers.map((provider) => (
-                        <TableRow key={provider.user_id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              {provider.avatar_url ? (
-                                <img
-                                  src={provider.avatar_url}
-                                  alt={provider.full_name || 'Avatar'}
-                                  className="h-10 w-10 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                                  <Users className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                              )}
-                              <span className="font-medium">
-                                {provider.full_name || 'Sans nom'}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell>{provider.phone || '-'}</TableCell>
-                          <TableCell>{provider.location || '-'}</TableCell>
-                          <TableCell>
-                            {format(new Date(provider.created_at), 'dd MMM yyyy', { locale: fr })}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{provider.productCount} produits</Badge>
-                          </TableCell>
-                          <TableCell>
-                            {provider.hasProducts ? (
-                              <Badge className="bg-green-100 text-green-700 gap-1">
-                                <UserCheck className="h-3 w-3" />
-                                Actif
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-yellow-100 text-yellow-700 gap-1">
-                                <UserX className="h-3 w-3" />
-                                Sans produit
-                              </Badge>
-                            )}
-                          </TableCell>
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Prestataire</TableHead>
+                          <TableHead>Téléphone</TableHead>
+                          <TableHead>Localisation</TableHead>
+                          <TableHead>Produits</TableHead>
+                          <TableHead>Date d'inscription</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {providersPagination.paginatedItems.map((provider) => (
+                          <TableRow key={provider.user_id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                {provider.avatar_url ? (
+                                  <img
+                                    src={provider.avatar_url}
+                                    alt={provider.full_name || ''}
+                                    className="h-10 w-10 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                                    <Users className="h-5 w-5 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <span className="font-medium">{provider.full_name || 'Non défini'}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>{provider.phone || '-'}</TableCell>
+                            <TableCell>{provider.location || '-'}</TableCell>
+                            <TableCell>
+                              <Badge variant={provider.hasProducts ? 'default' : 'secondary'}>
+                                {provider.productCount} produits
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(provider.created_at), 'dd MMM yyyy', { locale: fr })}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <PaginationControls
+                      currentPage={providersPagination.currentPage}
+                      totalPages={providersPagination.totalPages}
+                      startIndex={providersPagination.startIndex}
+                      endIndex={providersPagination.endIndex}
+                      totalItems={providersPagination.totalItems}
+                      onPreviousPage={providersPagination.goToPreviousPage}
+                      onNextPage={providersPagination.goToNextPage}
+                      onGoToPage={providersPagination.goToPage}
+                    />
+                  </>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Paramètres du compte
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Les paramètres du compte modérateur seront disponibles ici.
+                </p>
               </CardContent>
             </Card>
           </TabsContent>
