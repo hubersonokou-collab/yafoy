@@ -1,110 +1,90 @@
 
-
-# Plan d'Implementation - Gestion de l'Equipe YAFOY
+# Plan d'Implementation - Actions sur les Membres d'Equipe et Interfaces par Role
 
 ## Resume
 
-Ce plan ajoute la fonctionnalite complete de gestion d'equipe permettant aux administrateurs de creer des membres avec email/mot de passe et de leur attribuer des roles specifiques. Chaque role aura son propre tableau de bord avec les fonctionnalites appropriees.
+Ce plan ajoute les fonctionnalites suivantes :
+1. Actions de gestion des membres d'equipe (supprimer, modifier le role, modifier les informations)
+2. Confirmation que chaque role a bien son interface dediee
+3. Le moderateur utilise l'interface client avec ses fonctionnalites supplementaires
 
 ---
 
 ## Analyse de l'Existant
 
-### Roles deja configures dans la base de donnees
-- super_admin, admin, provider, client, accountant, supervisor, moderator, support
+### Interfaces par role actuellement :
+| Role | Interface actuelle | Statut |
+|------|-------------------|--------|
+| super_admin | /admin/* | OK |
+| admin | /admin/* | OK |
+| provider | /provider/* | OK |
+| client | /client/* | OK |
+| accountant | /team/accountant | 	Un modificateur selon demandé|
+| supervisor | /team/supervisor | 	Un modificateur selon demandé|
+| moderator | /team/moderator | A modifier selon demande |
+| support | /team/support | 	Un modificateur selon demandé|
 
-### Interfaces existantes
-- Admin : Dashboard complet avec gestion utilisateurs, produits, commandes, transactions
-- Provider : Dashboard, produits, commandes, parametres
-- Client : Dashboard, catalogue, commandes, favoris, planificateur
-
-### Ce qui manque
-1. Tableaux de bord dedies pour les roles d'equipe (Comptable, Superviseur, Moderateur, Support)
-2. Edge function pour creer des utilisateurs (l'admin doit pouvoir creer des comptes)
-3. Navigation specifique pour chaque role dans DashboardLayout
-4. Formulaire complet d'ajout de membre avec email + mot de passe
-
----
-
-## Architecture Proposee
-
-```text
-+------------------+     +------------------------+     +-------------------+
-|  AddTeamMember   | --> | Edge Function          | --> | Supabase Auth     |
-|  Dialog (Admin)  |     | create-team-member     |     | + user_roles      |
-+------------------+     +------------------------+     +-------------------+
-        |                         |
-        v                         v
-+------------------+     +------------------------+
-| Email + Password |     | Service Role Key       |
-| + Role Selection |     | (cree l'utilisateur)   |
-+------------------+     +------------------------+
-```
+### Ce qui manque :
+1. Actions de suppression/modification des membres dans AdminTeam.tsx
+2. Dialog de modification d'un membre (role + infos profil)
+3. Edge function pour supprimer un membre d'equipe
+4. Edge function pour modifier le role d'un membre
+5. Redirection du moderateur vers l'interface client
 
 ---
 
 ## Etapes d'Implementation
 
-### Etape 1 : Edge Function pour creer des membres d'equipe
+### Etape 1 : Creer une Edge Function pour gerer les membres d'equipe
 
-Creer `supabase/functions/create-team-member/index.ts` qui :
-- Verifie que l'appelant est admin/super_admin
-- Utilise le service role key pour creer l'utilisateur dans auth.users
-- Insere le role dans user_roles
-- Cree le profil dans profiles
-- Retourne les informations du nouvel utilisateur
+Creer `supabase/functions/manage-team-member/index.ts` qui supporte :
+- `DELETE` : Supprimer un membre d'equipe (supprime le role + optionnellement l'utilisateur)
+- `PATCH` : Modifier le role d'un membre ou ses informations de profil
 
-### Etape 2 : Mettre a jour AddTeamMemberDialog
+Securite :
+- Seuls les admin/super_admin peuvent modifier des membres
+- Un super_admin ne peut pas etre supprime sauf par lui-meme
+- Un admin ne peut pas supprimer/modifier un autre admin ou super_admin
 
-Modifier le composant pour :
-- Ajouter un champ mot de passe
-- Ajouter un champ nom complet
-- Appeler l'edge function pour creer le membre
-- Afficher un message de succes avec les informations
+### Etape 2 : Creer un composant TeamMemberActions
 
-### Etape 3 : Creer les tableaux de bord d'equipe
+Creer `src/components/team/TeamMemberActions.tsx` avec :
+- Menu dropdown avec 3 actions : Modifier le profil, Changer le role, Supprimer
+- Dialog de confirmation pour la suppression
+- Dialog de modification du profil (nom, telephone, localisation)
+- Dialog de changement de role
 
-#### 3.1 Tableau de bord Comptable (`/team/accountant`)
-- Acces aux transactions (deja accessible via AdminTransactions)
-- Statistiques financieres
-- Gestion des retraits prestataires
-- Rapports financiers
+### Etape 3 : Creer un composant EditTeamMemberDialog
 
-#### 3.2 Tableau de bord Superviseur (`/team/supervisor`)
-- Vue des commandes avec details complets
-- Informations clients et prestataires
-- Contacts et localisations
+Creer `src/components/team/EditTeamMemberDialog.tsx` pour :
+- Modifier le nom complet
+- Modifier le telephone
+- Modifier la localisation
+- Appeler l'edge function avec les nouvelles informations
 
-#### 3.3 Tableau de bord Moderateur (`/team/moderator`)
-- Verification des profils prestataires
-- Controle des contenus (photos/descriptions)
-- Gestion des signalements (reports)
-- Validation/blocage de produits
+### Etape 4 : Creer un composant ChangeRoleDialog
 
-#### 3.4 Tableau de bord Support (`/team/support`)
-- Gestion des tickets de support
-- Messagerie avec les utilisateurs
-- Aide aux plaintes
+Creer `src/components/team/ChangeRoleDialog.tsx` pour :
+- Afficher le role actuel
+- Permettre de selectionner un nouveau role
+- Appeler l'edge function pour changer le role
 
-### Etape 4 : Mettre a jour DashboardLayout
+### Etape 5 : Mettre a jour AdminTeam.tsx
 
-Ajouter les navigations specifiques pour chaque role :
-- accountantNav : Transactions, Retraits, Rapports
-- supervisorNav : Commandes, Suivi
-- moderatorNav : Verification, Signalements, Produits
-- supportNav : Tickets, Assistance
+Modifier la page pour :
+- Ajouter le menu d'actions pour chaque membre
+- Afficher l'email du membre (necessaire pour l'identification)
+- Ajouter le bouton de suppression avec confirmation
 
-### Etape 5 : Ajouter les routes dans App.tsx
+### Etape 6 : Rediriger le moderateur vers l'interface client
 
-Nouvelles routes pour les roles d'equipe :
-- `/team/accountant/*`
-- `/team/supervisor/*`
-- `/team/moderator/*`
-- `/team/support/*`
+Modifier les fichiers suivants :
+- `src/pages/Auth.tsx` : Rediriger le moderateur vers `/client` au lieu de `/team/moderator`
+- `src/components/dashboard/DashboardLayout.tsx` : Quand le moderateur est sur une route `/client/*`, afficher la navigation client avec un badge "Moderateur" et un lien vers le dashboard moderateur
 
-### Etape 6 : Ajouter "Equipe" dans la navigation admin
+### Etape 7 : Ajouter un lien "Mode Moderation" pour le moderateur
 
-Ajouter l'option "Equipe" dans le menu admin (si pas deja present) pointant vers `/admin/team`
+Dans la navigation client, ajouter un bouton special pour les moderateurs qui les amene a `/team/moderator` pour leurs taches de moderation specifiques (verification produits, signalements).
 
 ---
 
@@ -112,168 +92,98 @@ Ajouter l'option "Equipe" dans le menu admin (si pas deja present) pointant vers
 
 | Fichier | Description |
 |---------|-------------|
-| `supabase/functions/create-team-member/index.ts` | Edge function creation utilisateur |
-| `src/pages/team/AccountantDashboard.tsx` | Dashboard comptable |
-| `src/pages/team/SupervisorDashboard.tsx` | Dashboard superviseur |
-| `src/pages/team/ModeratorDashboard.tsx` | Dashboard moderateur |
-| `src/pages/team/SupportDashboard.tsx` | Dashboard support |
+| `supabase/functions/manage-team-member/index.ts` | Edge function pour modifier/supprimer les membres |
+| `src/components/team/TeamMemberActions.tsx` | Menu d'actions pour chaque membre |
+| `src/components/team/EditTeamMemberDialog.tsx` | Dialog de modification du profil |
+| `src/components/team/ChangeRoleDialog.tsx` | Dialog de changement de role |
 
 ## Fichiers a Modifier
 
 | Fichier | Modifications |
 |---------|---------------|
-| `src/components/team/AddTeamMemberDialog.tsx` | Ajouter champs mot de passe et nom, appeler edge function |
-| `src/components/dashboard/DashboardLayout.tsx` | Ajouter navigations pour chaque role d'equipe |
-| `src/App.tsx` | Ajouter routes /team/* |
-| `src/hooks/useAuth.tsx` | Deja OK - les fonctions role check existent |
+| `src/pages/admin/AdminTeam.tsx` | Ajouter le composant TeamMemberActions, afficher l'email |
+| `src/components/team/index.ts` | Exporter les nouveaux composants |
+| `src/pages/Auth.tsx` | Rediriger moderateur vers /client |
+| `src/components/dashboard/DashboardLayout.tsx` | Navigation speciale pour moderateur en mode client |
+| `supabase/config.toml` | Ajouter la nouvelle edge function |
 
 ---
 
 ## Details Techniques
 
-### Edge Function create-team-member
+### Edge Function manage-team-member
 
 ```text
-POST /functions/v1/create-team-member
-Headers: Authorization: Bearer <user_token>
-Body: {
-  email: string,
-  password: string,
-  fullName: string,
-  role: 'admin' | 'accountant' | 'supervisor' | 'moderator' | 'support'
+DELETE /functions/v1/manage-team-member
+Headers: Authorization: Bearer <token>
+Body: { userId: string }
+Response: { success: true, message: "..." }
+
+PATCH /functions/v1/manage-team-member  
+Headers: Authorization: Bearer <token>
+Body: { 
+  userId: string,
+  action: "update_role" | "update_profile",
+  data: { role?: string, fullName?: string, phone?: string, location?: string }
 }
+Response: { success: true, user: {...} }
 ```
 
-Securite :
-- Verification JWT de l'appelant
-- Verification que l'appelant est admin ou super_admin
-- Utilisation du SUPABASE_SERVICE_ROLE_KEY pour creer l'utilisateur
-
-### Navigation par Role
+### Interface TeamMemberActions
 
 ```text
-Comptable:
-- Tableau de bord -> /team/accountant
-- Transactions -> /admin/transactions (acces partage)
-- Retraits -> /team/accountant/withdrawals
-
-Superviseur:
-- Tableau de bord -> /team/supervisor
-- Commandes -> /team/supervisor/orders
-
-Moderateur:
-- Tableau de bord -> /team/moderator
-- Verification -> /team/moderator/verification
-- Signalements -> /team/moderator/reports
-
-Support:
-- Tableau de bord -> /team/support
-- Tickets -> /team/support/tickets
+[...] <- DropdownMenu trigger
+  |
+  +-- Modifier le profil (ouvre EditTeamMemberDialog)
+  +-- Changer le role (ouvre ChangeRoleDialog)
+  +-- Supprimer (AlertDialog de confirmation)
 ```
 
-### Redirection apres connexion
+### Flux moderateur
 
-Modifier `Auth.tsx` pour rediriger les roles d'equipe vers leur dashboard :
-- accountant -> /team/accountant
-- supervisor -> /team/supervisor
-- moderator -> /team/moderator
-- support -> /team/support
+```text
+Connexion moderateur
+       |
+       v
+Redirection vers /client (interface client)
+       |
+       +-- Navigation client normale
+       |
+       +-- Badge "Moderateur" visible
+       |
+       +-- Bouton "Mode Moderation" -> /team/moderator
+              |
+              v
+       Dashboard moderation (signalements, produits)
+```
+
+---
+
+## Interface Moderateur Simplifiee
+
+Le moderateur aura :
+1. Acces a l'interface client complete (/client/*)
+2. Un badge "Moderateur" dans la sidebar
+3. Un lien "Mode Moderation" qui amene vers /team/moderator
+4. Sur /team/moderator : verification des produits et gestion des signalements
+
+Cela permet au moderateur de voir l'experience utilisateur tout en ayant acces aux outils de moderation.
+
+---
+
+## Regles de Securite
+
+1. Un admin peut modifier/supprimer : accountant, supervisor, moderator, support
+2. Un super_admin peut modifier/supprimer : tout sauf lui-meme
+3. Personne ne peut se supprimer soi-meme (sauf super_admin via autre methode)
+4. Seul un super_admin peut creer/modifier un admin
+5. Les changements sont loggues pour audit
 
 ---
 
 ## Estimation
 
 - Edge Function : 1 fichier
-- Dashboards equipe : 4 fichiers
-- Modifications : 4 fichiers
+- Nouveaux composants : 3 fichiers
+- Modifications : 5 fichiers
 - Total : ~9 fichiers a creer/modifier
-
-
-
-
-
-
-
-
-
-
-en reumé tu doit ajouter sa :
-
-4️⃣ Modérateur
-👉 Le gardien de la qualité
-
-Rôles :
-
-Vérifier les profils prestataires
-
-Contrôler les contenus (photos, descriptions)
-
-Supprimer les faux comptes
-
-Gérer les signalements
-
-Aider à maintenir la crédibilité du site
-
-📌 Utile quand la plateforme grandit
-
-5️⃣ Gestionnaire de paiements / Finance
-👉 L’argent du site 💰
-
-Rôles :
-
-Suivre les paiements
-
-Gérer les commissions
-
-Valider les retraits des prestataires
-
-Gérer Mobile Money / cartes bancaires
-
-Produire des rapports financiers
-
-📌 Peut être combiné avec l’admin au début
-
-6️⃣ Support Client
-👉 L’assistance utilisateurs
-
-Rôles :
-
-Répondre aux questions clients et prestataires
-
-Aider à la création de comptes
-
-Gérer les plaintes simples
-
-Accompagner les nouveaux utilisateurs
-
-📌 Très important pour la confiance
-
-7️⃣ Visiteur (Non connecté)
-👉 Les curieux 👀
-
-Droits :
-
-Voir les prestataires
-
-Consulter les services
-
-Lire les avis
-
-MAIS pas de contact direct sans inscription
-
-📌 Objectif : pousser à l’inscription
-
-8️⃣ (Optionnel) Partenaire / Sponsor
-👉 Pour la monétisation
-
-Rôles :
-
-Avoir une visibilité spéciale
-
-Mettre des annonces sponsorisées
-
-Être mis en avant sur la page d’accueil
-
-
-
-
