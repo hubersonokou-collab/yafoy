@@ -35,7 +35,9 @@ import {
   UtensilsCrossed,
   Truck,
   Camera,
-  ChefHat
+  ChefHat,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 
 interface SimplifiedAIChatProps {
@@ -97,6 +99,7 @@ export const SimplifiedAIChat = ({ onProductSelect, onReserve, standalone = fals
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [rentalDays, setRentalDays] = useState(1);
+  const [isExpanded, setIsExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -274,20 +277,48 @@ export const SimplifiedAIChat = ({ onProductSelect, onReserve, standalone = fals
   };
 
   return (
-    <Card className={cn("flex flex-col", standalone ? "h-[600px]" : "h-full")}>
-      <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-        {/* Chat Header */}
-        <div className="p-4 border-b bg-gradient-to-r from-primary/10 to-primary/5">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary rounded-full">
-              <Bot className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-secondary">Assistant YAFOY</h3>
-              <p className="text-xs text-muted-foreground">Disponible 24/7</p>
+    <>
+      {/* Overlay for expanded mode */}
+      {isExpanded && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsExpanded(false)}
+        />
+      )}
+      
+      <Card className={cn(
+        "flex flex-col transition-all duration-300",
+        standalone ? "h-[600px]" : "h-full",
+        isExpanded && "fixed inset-4 z-50 h-auto max-h-[calc(100vh-2rem)]"
+      )}>
+        <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
+          {/* Chat Header */}
+          <div className="p-4 border-b bg-gradient-to-r from-primary/10 to-primary/5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary rounded-full">
+                  <Bot className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-secondary">Assistant YAFOY</h3>
+                  <p className="text-xs text-muted-foreground">Disponible 24/7</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setIsExpanded(!isExpanded)}
+                title={isExpanded ? "Réduire" : "Agrandir"}
+              >
+                {isExpanded ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+              </Button>
             </div>
           </div>
-        </div>
 
         {/* Messages Area */}
         <ScrollArea className="flex-1 px-4" ref={scrollRef}>
@@ -590,5 +621,6 @@ export const SimplifiedAIChat = ({ onProductSelect, onReserve, standalone = fals
         </form>
       </CardContent>
     </Card>
+    </>
   );
 };
