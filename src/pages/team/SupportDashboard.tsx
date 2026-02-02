@@ -30,6 +30,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import {
   Loader2,
   HeadphonesIcon,
@@ -39,6 +42,7 @@ import {
   Send,
   User,
   AlertCircle,
+  UserPlus,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -71,6 +75,7 @@ interface Message {
 const SupportDashboard = () => {
   const { user, loading: authLoading, isSupport, isAdmin, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -81,6 +86,16 @@ const SupportDashboard = () => {
     open: 0,
     inProgress: 0,
     resolved: 0,
+  });
+  
+  // Account creation state
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [newUserData, setNewUserData] = useState({
+    email: '',
+    password: '',
+    fullName: '',
+    role: 'client' as 'client' | 'provider',
   });
 
   useEffect(() => {
@@ -224,6 +239,70 @@ const SupportDashboard = () => {
     return <Badge className={config[priority]?.className || 'bg-gray-100 text-gray-700'}>{priority}</Badge>;
   };
 
+  const handleCreateAccount = async () => {
+    if (!newUserData.email || !newUserData.password || !newUserData.fullName) {
+      toast({
+        title: 'Erreur',
+        description: 'Veuillez remplir tous les champs',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (newUserData.password.length < 6) {
+      toast({
+        title: 'Erreur',
+        description: 'Le mot de passe doit contenir au moins 6 caractères',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCreatingAccount(true);
+    try {
+      // Create user via Supabase auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newUserData.email,
+        password: newUserData.password,
+        options: {
+          data: { full_name: newUserData.fullName },
+        },
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Insert user role
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({ user_id: authData.user.id, role: newUserData.role });
+
+        if (roleError) throw roleError;
+
+        toast({
+          title: 'Compte créé',
+          description: `Le compte ${newUserData.role === 'client' ? 'client' : 'prestataire'} a été créé avec succès`,
+        });
+
+        setNewUserData({ email: '', password: '', fullName: '', role: 'client' });
+        setShowCreateAccount(false);
+      }
+    } catch (error: any) {
+      console.error('Error creating account:', error);
+      let errorMessage = 'Une erreur est survenue lors de la création du compte';
+      if (error.message?.includes('already registered')) {
+        errorMessage = 'Un compte existe déjà avec cet email';
+      }
+      toast({
+        title: 'Erreur',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -236,11 +315,86 @@ const SupportDashboard = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-secondary">Tableau de bord Support</h1>
-          <p className="text-muted-foreground">
-            Gérez les tickets de support et assistez les utilisateurs
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-secondary">Tableau de bord Support</h1>
+            <p className="text-muted-foreground">
+              Gérez les tickets de support et assistez les utilisateurs
+            </p>
+          </div>
+          <Dialog open={showCreateAccount} onOpenChange={setShowCreateAccount}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                Créer un compte
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Créer un compte utilisateur</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Nom complet</Label>
+                  <Input
+                    id="fullName"
+                    value={newUserData.fullName}
+                    onChange={(e) => setNewUserData({ ...newUserData, fullName: e.target.value })}
+                    placeholder="Jean Dupont"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newUserData.email}
+                    onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+                    placeholder="jean@exemple.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Mot de passe</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={newUserData.password}
+                    onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Type de compte</Label>
+                  <Select
+                    value={newUserData.role}
+                    onValueChange={(value: 'client' | 'provider') =>
+                      setNewUserData({ ...newUserData, role: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="client">Client</SelectItem>
+                      <SelectItem value="provider">Prestataire</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={handleCreateAccount}
+                  disabled={creatingAccount}
+                >
+                  {creatingAccount ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <UserPlus className="h-4 w-4 mr-2" />
+                  )}
+                  Créer le compte
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Stats Cards */}

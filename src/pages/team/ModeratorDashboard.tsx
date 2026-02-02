@@ -33,6 +33,9 @@ import {
   AlertTriangle,
   ShieldCheck,
   ShieldX,
+  Users,
+  UserX,
+  UserCheck,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -61,17 +64,30 @@ interface Product {
   provider_id: string;
 }
 
+interface ProviderProfile {
+  user_id: string;
+  full_name: string | null;
+  phone: string | null;
+  location: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  productCount: number;
+  hasProducts: boolean;
+}
+
 const ModeratorDashboard = () => {
   const { user, loading: authLoading, isModerator, isAdmin, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [reports, setReports] = useState<Report[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [providers, setProviders] = useState<ProviderProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [stats, setStats] = useState({
     pendingReports: 0,
     unverifiedProducts: 0,
     resolvedReports: 0,
+    totalProviders: 0,
   });
 
   useEffect(() => {
@@ -113,11 +129,50 @@ const ModeratorDashboard = () => {
       if (productsError) throw productsError;
       setProducts(productsData || []);
 
+      // Fetch provider profiles (users with provider role)
+      const { data: providerRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'provider');
+
+      if (rolesError) throw rolesError;
+
+      if (providerRoles && providerRoles.length > 0) {
+        const providerIds = providerRoles.map((r) => r.user_id);
+        
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('user_id', providerIds)
+          .order('created_at', { ascending: false });
+
+        if (profilesError) throw profilesError;
+
+        // Fetch product count for each provider
+        const providersWithProducts = await Promise.all(
+          (profilesData || []).map(async (profile) => {
+            const { count } = await supabase
+              .from('products')
+              .select('*', { count: 'exact', head: true })
+              .eq('provider_id', profile.user_id);
+
+            return {
+              ...profile,
+              productCount: count || 0,
+              hasProducts: (count || 0) > 0,
+            };
+          })
+        );
+
+        setProviders(providersWithProducts);
+      }
+
       // Calculate stats
       setStats({
         pendingReports: (reportsData || []).filter((r) => r.status === 'pending').length,
         unverifiedProducts: (productsData || []).length,
         resolvedReports: (reportsData || []).filter((r) => r.status === 'resolved').length,
+        totalProviders: providerRoles?.length || 0,
       });
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -250,7 +305,11 @@ const ModeratorDashboard = () => {
             </TabsTrigger>
             <TabsTrigger value="products" className="gap-2">
               <Package className="h-4 w-4" />
-              Produits à vérifier ({stats.unverifiedProducts})
+              Produits ({stats.unverifiedProducts})
+            </TabsTrigger>
+            <TabsTrigger value="providers" className="gap-2">
+              <Users className="h-4 w-4" />
+              Prestataires ({stats.totalProviders})
             </TabsTrigger>
           </TabsList>
 
@@ -407,6 +466,82 @@ const ModeratorDashboard = () => {
                       </Card>
                     ))}
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="providers">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Profils prestataires
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {providers.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    Aucun prestataire
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Prestataire</TableHead>
+                        <TableHead>Téléphone</TableHead>
+                        <TableHead>Localisation</TableHead>
+                        <TableHead>Inscription</TableHead>
+                        <TableHead>Produits</TableHead>
+                        <TableHead>Statut</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {providers.map((provider) => (
+                        <TableRow key={provider.user_id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              {provider.avatar_url ? (
+                                <img
+                                  src={provider.avatar_url}
+                                  alt={provider.full_name || 'Avatar'}
+                                  className="h-10 w-10 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                                  <Users className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                              )}
+                              <span className="font-medium">
+                                {provider.full_name || 'Sans nom'}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{provider.phone || '-'}</TableCell>
+                          <TableCell>{provider.location || '-'}</TableCell>
+                          <TableCell>
+                            {format(new Date(provider.created_at), 'dd MMM yyyy', { locale: fr })}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{provider.productCount} produits</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {provider.hasProducts ? (
+                              <Badge className="bg-green-100 text-green-700 gap-1">
+                                <UserCheck className="h-3 w-3" />
+                                Actif
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-yellow-100 text-yellow-700 gap-1">
+                                <UserX className="h-3 w-3" />
+                                Sans produit
+                              </Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 )}
               </CardContent>
             </Card>
