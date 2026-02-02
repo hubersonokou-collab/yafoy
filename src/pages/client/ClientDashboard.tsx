@@ -245,10 +245,12 @@ const ClientDashboard = () => {
             {/* Inline Chat */}
             {showChat && (
               <div className="mt-4 h-[350px] sm:h-[400px]">
-                <SimplifiedAIChat 
+              <SimplifiedAIChat 
                   standalone={false}
-                  onReserve={(productIds) => {
-                    navigate('/client/event-planner');
+                  onReserve={() => {
+                    // Ne PAS naviguer ici - la navigation est gérée par SimplifiedAIChat
+                    // On ferme simplement le chat
+                    setShowChat(false);
                   }}
                 />
               </div>
