@@ -1,168 +1,153 @@
 
-# Plan : Pagination par groupes de 2 catégories + Popup détails membre d'équipe
+# Plan : Sélection multiple des services dans le chatbot
 
-## 1. Pagination du Catalogue par groupes de 2 catégories
+## Problème actuel
 
-### Problème actuel
-La pagination actuelle pagine les **produits individuellement** (12 produits par page), ce qui mélange les catégories sur chaque page.
+Dans le composant `SimplifiedAIChat.tsx`, l'étape de sélection des services (step `service`) ne permet qu'une **sélection unique**. Quand l'utilisateur clique sur un service (Décoration, Mobilier, etc.), il passe immédiatement à l'étape suivante sans pouvoir sélectionner plusieurs services.
 
-### Solution
-Paginer par **groupes de 2 catégories** au lieu de paginer par produits individuels.
+## Solution
 
-**Exemple :**
-- Page 1 : Mobilier + Décoration
-- Page 2 : Sonorisation + Éclairage
-- Page 3 : Vaisselle + Transport
-- Page 4 : Photographie + Traiteur
+Modifier la logique pour permettre une **sélection multiple** des services avec un bouton "Continuer" pour passer à l'étape suivante.
 
-### Modifications dans ClientCatalog.tsx
+## Modifications dans SimplifiedAIChat.tsx
 
-1. **Supprimer** la pagination par produits (lignes 320-337)
+### 1. Ajouter un état pour les services sélectionnés
 
-2. **Créer** une logique de pagination par catégories :
 ```typescript
-// Grouper les catégories qui ont des produits
-const categoriesWithProducts = categories.filter(cat => 
-  filteredProducts.some(p => p.category_id === cat.id)
-);
-
-// Pagination par groupes de 2 catégories
-const CATEGORIES_PER_PAGE = 2;
-const totalCategoryPages = Math.ceil(categoriesWithProducts.length / CATEGORIES_PER_PAGE);
-const [categoryPage, setCategoryPage] = useState(1);
-
-const startCatIndex = (categoryPage - 1) * CATEGORIES_PER_PAGE;
-const endCatIndex = startCatIndex + CATEGORIES_PER_PAGE;
-const paginatedCategories = categoriesWithProducts.slice(startCatIndex, endCatIndex);
+const [selectedServices, setSelectedServices] = useState<string[]>([]);
 ```
 
-3. **Mettre à jour** l'affichage pour utiliser `paginatedCategories` au lieu de `productsByCategory`
+### 2. Créer une fonction pour toggle les services
 
-4. **Adapter** les contrôles de pagination pour afficher les catégories au lieu des produits
+```typescript
+const handleServiceToggle = (serviceId: string) => {
+  setSelectedServices(prev => 
+    prev.includes(serviceId) 
+      ? prev.filter(id => id !== serviceId)
+      : [...prev, serviceId]
+  );
+};
+```
 
----
+### 3. Créer une fonction pour confirmer les services sélectionnés
 
-## 2. Popup de détails pour les membres d'équipe
+```typescript
+const handleConfirmServices = () => {
+  if (selectedServices.length === 0) return;
+  
+  const selectedLabels = SERVICE_ACTIONS
+    .filter(a => selectedServices.includes(a.id))
+    .map(a => a.label)
+    .join(', ');
+  
+  setBotMessages(prev => [
+    ...prev, 
+    { text: selectedLabels, isBot: false },
+    { text: 'Combien de jours pour l\'événement ?', isBot: true }
+  ]);
+  setChatStep('days');
+  
+  // Build message with all selected services
+  const serviceMessages = SERVICE_ACTIONS
+    .filter(a => selectedServices.includes(a.id))
+    .map(a => a.message)
+    .join('. ');
+  
+  sendMessage(`Je prépare un ${selectedEvent}. ${serviceMessages}.`);
+};
+```
 
-### Problème actuel
-- Le dialogue de modification n'affiche que : Nom, Téléphone, Localisation
-- L'email n'est pas affiché
-- Pas de popup pour voir les infos quand on clique sur un membre
+### 4. Modifier l'affichage de l'étape 'service'
 
-### Solution
-Créer un nouveau composant `TeamMemberDetailsDialog` qui affiche les informations complètes d'un membre.
-
-### Nouveau composant : src/components/team/TeamMemberDetailsDialog.tsx
+Remplacer le rendu actuel (lignes 387-405) par :
 
 ```text
-Structure du dialogue :
-- En-tête avec avatar et nom
-- Section Informations du compte :
-  - Email (récupéré via Edge Function)
-  - Rôle
-  - Date d'ajout
-- Section Profil :
-  - Téléphone
-  - Localisation
-- Boutons d'action : Modifier, Changer le rôle, Fermer
+Structure de l'interface :
+- Grille de boutons de services avec style toggle (sélectionné/non sélectionné)
+- Chaque bouton affiche une coche quand sélectionné
+- Bouton "Continuer" en bas pour valider la sélection
+- Le bouton "Continuer" est désactivé si aucun service n'est sélectionné
 ```
 
-### Modification de l'Edge Function manage-team-member
+```tsx
+{chatStep === 'service' && (
+  <div className="space-y-3 mt-4">
+    <div className="grid grid-cols-2 gap-2">
+      {SERVICE_ACTIONS.map((action) => {
+        const Icon = action.icon;
+        const isSelected = selectedServices.includes(action.id);
+        return (
+          <Button
+            key={action.id}
+            variant="outline"
+            size="sm"
+            className={cn(
+              "h-auto py-3 flex flex-col items-center gap-2 rounded-xl transition-all relative",
+              isSelected && "border-primary bg-primary/10"
+            )}
+            onClick={() => handleServiceToggle(action.id)}
+          >
+            {isSelected && (
+              <CheckCircle2 className="absolute top-2 right-2 h-4 w-4 text-primary" />
+            )}
+            <Icon className="h-5 w-5" />
+            <span className="text-xs">{action.label}</span>
+          </Button>
+        );
+      })}
+    </div>
+    <Button
+      className="w-full"
+      disabled={selectedServices.length === 0}
+      onClick={handleConfirmServices}
+    >
+      Continuer ({selectedServices.length} service{selectedServices.length > 1 ? 's' : ''})
+    </Button>
+  </div>
+)}
+```
 
-Ajouter une action `GET` pour récupérer les informations d'un utilisateur (email via auth.admin.getUserById) :
+### 5. Ajouter plus de services à la liste
+
+Actuellement, seuls 4 services sont disponibles dans `SERVICE_ACTIONS`. Mettre à jour la liste pour inclure tous les 8 services :
 
 ```typescript
-// Nouvelle route GET pour obtenir les détails
-if (req.method === 'GET') {
-  const url = new URL(req.url);
-  const userId = url.searchParams.get('userId');
-  
-  // Récupérer l'email via auth.admin
-  const { data: userData } = await adminClient.auth.admin.getUserById(userId);
-  
-  return Response.json({
-    email: userData.user?.email,
-    // autres infos...
-  });
-}
+const SERVICE_ACTIONS: QuickAction[] = [
+  { id: 'decoration', label: 'Décoration', icon: Sparkles, message: 'Je cherche de la décoration' },
+  { id: 'mobilier', label: 'Mobilier', icon: ShoppingCart, message: 'Je cherche du mobilier (tables, chaises)' },
+  { id: 'sonorisation', label: 'Sonorisation', icon: Music, message: 'Je cherche de la sonorisation' },
+  { id: 'eclairage', label: 'Éclairage', icon: Lightbulb, message: 'Je cherche de l\'éclairage' },
+  { id: 'vaisselle', label: 'Vaisselle', icon: UtensilsCrossed, message: 'Je cherche de la vaisselle' },
+  { id: 'transport', label: 'Transport', icon: Truck, message: 'Je cherche du transport' },
+  { id: 'photo', label: 'Photographie', icon: Camera, message: 'Je cherche un photographe' },
+  { id: 'traiteur', label: 'Traiteur', icon: ChefHat, message: 'Je cherche un traiteur' },
+];
 ```
-
-### Modification de AdminTeam.tsx
-
-1. Ajouter un état pour le membre sélectionné et le dialogue
-2. Rendre chaque carte de membre cliquable
-3. Afficher le `TeamMemberDetailsDialog` au clic
-
-```typescript
-const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
-const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-
-// Dans le rendu, rendre la carte cliquable
-<div 
-  onClick={() => {
-    setSelectedMember(member);
-    setShowDetailsDialog(true);
-  }}
-  className="cursor-pointer hover:bg-accent/50 transition-colors ..."
->
-```
-
-### Note de sécurité importante
-
-**Le mot de passe ne peut PAS être affiché** pour des raisons de sécurité :
-- Les mots de passe sont hashés en base de données (bcrypt)
-- Supabase ne stocke jamais les mots de passe en clair
-- Il est impossible de récupérer le mot de passe original
-
-**Alternative proposée :** Ajouter un bouton "Réinitialiser le mot de passe" qui envoie un email de réinitialisation à l'utilisateur.
 
 ---
 
-## Fichiers à créer/modifier
+## Fichier à modifier
 
-| Fichier | Action | Description |
-|---------|--------|-------------|
-| `src/pages/client/ClientCatalog.tsx` | Modifier | Pagination par groupes de 2 catégories |
-| `src/components/team/TeamMemberDetailsDialog.tsx` | Créer | Popup de détails membre |
-| `src/components/team/index.ts` | Modifier | Exporter le nouveau composant |
-| `src/pages/admin/AdminTeam.tsx` | Modifier | Rendre les membres cliquables + intégrer le dialogue |
-| `supabase/functions/manage-team-member/index.ts` | Modifier | Ajouter GET pour récupérer email + action reset password |
-
----
-
-## Détails techniques
-
-### Interface TeamMember enrichie
-```typescript
-interface TeamMember {
-  id: string;
-  user_id: string;
-  role: string;
-  created_at: string;
-  email?: string; // Ajouté
-  profile?: {
-    full_name: string | null;
-    avatar_url: string | null;
-    phone?: string | null;
-    location?: string | null;
-  };
-}
-```
-
-### Boutons dans le dialogue de détails
-1. **Voir les infos** : Email, rôle, date d'inscription, téléphone, localisation
-2. **Modifier le profil** : Ouvre le dialogue d'édition existant
-3. **Changer le rôle** : Ouvre le dialogue de changement de rôle existant
-4. **Réinitialiser le mot de passe** : Envoie un email de réinitialisation (seul super_admin peut faire ça)
-5. **Fermer** : Ferme le dialogue
+| Fichier | Modifications |
+|---------|--------------|
+| `src/components/event-planner/SimplifiedAIChat.tsx` | Ajouter sélection multiple des services |
 
 ---
 
 ## Résumé des changements
 
-| Fonctionnalité | Avant | Après |
-|----------------|-------|-------|
-| Pagination catalogue | 12 produits/page mélangés | 2 catégories/page (ex: Mobilier + Décoration) |
-| Clic sur membre équipe | Rien | Popup avec email, rôle, date, téléphone, localisation |
-| Voir email membre | Impossible | Visible dans le popup (super_admin uniquement) |
-| Mot de passe | Non affichable (sécurité) | Bouton "Réinitialiser" pour envoyer un email |
+| Avant | Après |
+|-------|-------|
+| Clic sur un service → passe directement à l'étape suivante | Clic sur un service → toggle la sélection |
+| Un seul service sélectionnable | Plusieurs services sélectionnables |
+| 4 services disponibles | 8 services disponibles |
+| Pas de bouton de confirmation | Bouton "Continuer (X services)" pour valider |
+
+---
+
+## Résultat attendu
+
+1. L'utilisateur peut cliquer sur plusieurs services (ex: Décoration + Mobilier + Sonorisation)
+2. Les services sélectionnés affichent une coche et un style distinctif
+3. Un bouton "Continuer" apparaît en bas avec le nombre de services sélectionnés
+4. Au clic sur "Continuer", l'IA recherche des produits pour TOUS les services sélectionnés
