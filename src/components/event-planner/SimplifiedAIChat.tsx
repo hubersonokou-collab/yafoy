@@ -237,9 +237,20 @@ export const SimplifiedAIChat = ({ onProductSelect, onReserve, standalone = fals
   };
 
   const handleFinalConfirm = () => {
-    onReserve?.(selectedProducts);
     if (standalone) {
-      navigate('/client/event-planner');
+      // Passer les produits sélectionnés et les données de l'événement via le state
+      navigate('/client/event-planner', {
+        state: {
+          fromBot: true,
+          selectedProductIds: selectedProducts,
+          recommendedProducts: recommendedProducts.filter(p => selectedProducts.includes(p.id)),
+          eventType: selectedEvent,
+          rentalDays: rentalDays,
+          servicesNeeded: selectedServices,
+        }
+      });
+    } else {
+      onReserve?.(selectedProducts);
     }
   };
 
