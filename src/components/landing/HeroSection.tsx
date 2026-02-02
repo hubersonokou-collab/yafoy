@@ -4,7 +4,7 @@ import { ArrowRight, Mic, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const HeroSection = () => {
-  const { user, isAdmin, isSuperAdmin, isProvider, isClient } = useAuth();
+  const { user, isAdmin, isSuperAdmin, isProvider, isClient, isAccountant, isSupervisor, isModerator, isSupport } = useAuth();
 
   return (
     <section className="relative py-20 md:py-32 px-4 overflow-hidden">
@@ -63,6 +63,38 @@ const HeroSection = () => {
                   <Link to="/admin">
                     <Button size="lg" className="text-lg px-8 py-6 rounded-xl shadow-lg shadow-primary/25">
                       Accéder à l'administration
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </Link>
+                )}
+                {isAccountant() && (
+                  <Link to="/team/accountant">
+                    <Button size="lg" className="text-lg px-8 py-6 rounded-xl shadow-lg shadow-primary/25">
+                      Accéder à l'interface comptable
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </Link>
+                )}
+                {isSupervisor() && (
+                  <Link to="/team/supervisor">
+                    <Button size="lg" className="text-lg px-8 py-6 rounded-xl shadow-lg shadow-primary/25">
+                      Accéder à l'interface superviseur
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </Link>
+                )}
+                {isModerator() && (
+                  <Link to="/team/moderator">
+                    <Button size="lg" className="text-lg px-8 py-6 rounded-xl shadow-lg shadow-primary/25">
+                      Accéder à l'interface modérateur
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </Link>
+                )}
+                {isSupport() && (
+                  <Link to="/team/support">
+                    <Button size="lg" className="text-lg px-8 py-6 rounded-xl shadow-lg shadow-primary/25">
+                      Accéder à l'interface support
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
                   </Link>
