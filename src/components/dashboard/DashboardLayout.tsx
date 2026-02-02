@@ -64,6 +64,17 @@ const clientNav: NavItem[] = [
   { title: 'Paramètres', href: '/client/settings', icon: Settings },
 ];
 
+// Moderator uses client navigation with moderation mode access
+const moderatorClientNav: NavItem[] = [
+  { title: 'Accueil', href: '/client', icon: LayoutDashboard },
+  { title: 'Planifier', href: '/client/event-planner', icon: Sparkles },
+  { title: 'Catalogue', href: '/client/catalog', icon: Package },
+  { title: 'Mes commandes', href: '/client/orders', icon: ShoppingCart },
+  { title: 'Favoris', href: '/client/favorites', icon: Heart },
+  { title: 'Mode Modération', href: '/team/moderator', icon: Flag },
+  { title: 'Paramètres', href: '/client/settings', icon: Settings },
+];
+
 const accountantNav: NavItem[] = [
   { title: 'Tableau de bord', href: '/team/accountant', icon: LayoutDashboard },
   { title: 'Transactions', href: '/admin/transactions', icon: Receipt },
@@ -135,9 +146,16 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     dashboardTitle = 'Prestataire';
     DashboardIcon = Store;
   } else if (isClientRoute || user) {
-    navItems = clientNav;
-    dashboardTitle = 'Client';
-    DashboardIcon = Heart;
+    // Special case: moderator on client routes gets moderator navigation
+    if (isModeratorUser) {
+      navItems = moderatorClientNav;
+      dashboardTitle = 'Client (Modérateur)';
+      DashboardIcon = Flag;
+    } else {
+      navItems = clientNav;
+      dashboardTitle = 'Client';
+      DashboardIcon = Heart;
+    }
   }
 
   const handleSignOut = async () => {

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { AddTeamMemberDialog } from '@/components/team';
+import { AddTeamMemberDialog, TeamMemberActions } from '@/components/team';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -17,6 +17,8 @@ interface TeamMember {
   profile?: {
     full_name: string | null;
     avatar_url: string | null;
+    phone?: string | null;
+    location?: string | null;
   };
 }
 
@@ -30,7 +32,7 @@ const roleConfig: Record<string, { label: string; icon: React.ElementType; color
 };
 
 const AdminTeam = () => {
-  const { user, loading: authLoading, isSuperAdmin, isAdmin } = useAuth();
+  const { user, loading: authLoading, isSuperAdmin, isAdmin, userRole } = useAuth();
   const navigate = useNavigate();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,13 +68,13 @@ const AdminTeam = () => {
         (roles || []).map(async (role) => {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('full_name, avatar_url')
+            .select('full_name, avatar_url, phone, location')
             .eq('user_id', role.user_id)
             .single();
 
           return {
             ...role,
-            profile: profile || { full_name: null, avatar_url: null },
+            profile: profile || { full_name: null, avatar_url: null, phone: null, location: null },
           };
         })
       );
@@ -181,12 +183,25 @@ const AdminTeam = () => {
                           <p className="text-sm text-muted-foreground">
                             Ajouté le {new Date(member.created_at).toLocaleDateString('fr-FR')}
                           </p>
+                          {member.profile?.phone && (
+                            <p className="text-xs text-muted-foreground">
+                              {member.profile.phone}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <Badge className={`gap-1 ${config.color}`}>
-                        <Icon className="h-3 w-3" />
-                        {config.label}
-                      </Badge>
+                      <div className="flex items-center gap-3">
+                        <Badge className={`gap-1 ${config.color}`}>
+                          <Icon className="h-3 w-3" />
+                          {config.label}
+                        </Badge>
+                        <TeamMemberActions
+                          member={member}
+                          currentUserRole={userRole || ''}
+                          currentUserId={user?.id || ''}
+                          onMemberUpdated={fetchTeamMembers}
+                        />
+                      </div>
                     </div>
                   );
                 })}
