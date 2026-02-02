@@ -237,21 +237,20 @@ export const SimplifiedAIChat = ({ onProductSelect, onReserve, standalone = fals
   };
 
   const handleFinalConfirm = () => {
-    if (standalone) {
-      // Passer les produits sélectionnés et les données de l'événement via le state
-      navigate('/client/event-planner', {
-        state: {
-          fromBot: true,
-          selectedProductIds: selectedProducts,
-          recommendedProducts: recommendedProducts.filter(p => selectedProducts.includes(p.id)),
-          eventType: selectedEvent,
-          rentalDays: rentalDays,
-          servicesNeeded: selectedServices,
-        }
-      });
-    } else {
-      onReserve?.(selectedProducts);
-    }
+    // Toujours naviguer avec les données complètes, quel que soit le mode
+    navigate('/client/event-planner', {
+      state: {
+        fromBot: true,
+        selectedProductIds: selectedProducts,
+        recommendedProducts: recommendedProducts.filter(p => selectedProducts.includes(p.id)),
+        eventType: selectedEvent,
+        rentalDays: rentalDays,
+        servicesNeeded: selectedServices,
+      }
+    });
+    
+    // Appeler également le callback si fourni (pour d'éventuels autres usages)
+    onReserve?.(selectedProducts);
   };
 
   const handleQuickReply = (reply: string) => {
