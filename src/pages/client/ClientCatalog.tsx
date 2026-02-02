@@ -4,8 +4,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { ProductCard } from '@/components/products/ProductCard';
-import { usePagination } from '@/hooks/usePagination';
-import { PaginationControls } from '@/components/ui/pagination-controls';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -317,33 +315,31 @@ const ClientCatalog = () => {
     return matchesSearch && matchesCategory && matchesEvent;
   });
 
-  // Pagination for filtered products
-  const {
-    currentPage,
-    totalPages,
-    paginatedItems: paginatedProducts,
-    startIndex,
-    endIndex,
-    totalItems,
-    goToNextPage,
-    goToPreviousPage,
-    goToPage,
-    setCurrentPage,
-  } = usePagination(filteredProducts, { itemsPerPage: 12 });
+  // Group products by category (only categories with products)
+  const categoriesWithProducts = categories
+    .map((cat) => {
+      const catProducts = filteredProducts.filter((p) => p.category_id === cat.id);
+      return catProducts.length > 0 ? { category: cat, products: catProducts } : null;
+    })
+    .filter((item): item is { category: any; products: any[] } => item !== null);
+
+  // Pagination by groups of 2 categories
+  const CATEGORIES_PER_PAGE = 2;
+  const [categoryPage, setCategoryPage] = useState(1);
+  const totalCategoryPages = Math.ceil(categoriesWithProducts.length / CATEGORIES_PER_PAGE);
+  
+  const startCatIndex = (categoryPage - 1) * CATEGORIES_PER_PAGE;
+  const endCatIndex = startCatIndex + CATEGORIES_PER_PAGE;
+  const paginatedCategoryGroups = categoriesWithProducts.slice(startCatIndex, endCatIndex);
 
   // Reset to page 1 when filters change
   useEffect(() => {
-    setCurrentPage(1);
+    setCategoryPage(1);
   }, [searchQuery, categoryFilter, eventFilter]);
 
-  // Group paginated products by category for section display
-  const productsByCategory = categories.reduce((acc, cat) => {
-    const catProducts = paginatedProducts.filter(p => p.category_id === cat.id);
-    if (catProducts.length > 0) {
-      acc[cat.id] = { category: cat, products: catProducts };
-    }
-    return acc;
-  }, {} as Record<string, { category: any; products: any[] }>);
+  // Calculate display info for pagination
+  const displayedCategoryNames = paginatedCategoryGroups.map((g) => g.category.name).join(' + ');
+  const totalProductsOnPage = paginatedCategoryGroups.reduce((sum, g) => sum + g.products.length, 0);
 
   if (authLoading || loading) {
     return (
@@ -591,7 +587,7 @@ const ClientCatalog = () => {
           </Card>
         ) : (
           <div className="space-y-10">
-            {Object.values(productsByCategory).map(({ category, products: catProducts }) => (
+            {paginatedCategoryGroups.map(({ category, products: catProducts }) => (
               <section key={category.id} className="space-y-4">
                 <div className="flex items-center gap-3">
                   <h2 className="text-xl font-semibold text-secondary">{category.name}</h2>
@@ -621,17 +617,49 @@ const ClientCatalog = () => {
               </section>
             ))}
             
-            {/* Pagination */}
-            <PaginationControls
-              currentPage={currentPage}
-              totalPages={totalPages}
-              startIndex={startIndex}
-              endIndex={endIndex}
-              totalItems={totalItems}
-              onPreviousPage={goToPreviousPage}
-              onNextPage={goToNextPage}
-              onGoToPage={goToPage}
-            />
+            {/* Pagination by Categories */}
+            {totalCategoryPages > 1 && (
+              <div className="flex items-center justify-between border-t pt-4 mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Page {categoryPage} sur {totalCategoryPages} — {displayedCategoryNames} ({totalProductsOnPage} produit{totalProductsOnPage > 1 ? 's' : ''})
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCategoryPage((prev) => Math.max(1, prev - 1))}
+                    disabled={categoryPage <= 1}
+                    className="gap-1"
+                  >
+                    Précédent
+                  </Button>
+
+                  <div className="flex items-center gap-1 mx-2">
+                    {Array.from({ length: totalCategoryPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant={categoryPage === page ? 'default' : 'outline'}
+                        size="sm"
+                        className="w-9 h-9 p-0"
+                        onClick={() => setCategoryPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCategoryPage((prev) => Math.min(totalCategoryPages, prev + 1))}
+                    disabled={categoryPage >= totalCategoryPages}
+                    className="gap-1"
+                  >
+                    Suivant
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

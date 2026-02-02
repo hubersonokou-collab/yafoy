@@ -85,6 +85,97 @@ Deno.serve(async (req) => {
     // Create admin client for privileged operations
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Handle GET request - fetch user details including email
+    if (req.method === 'GET') {
+      const url = new URL(req.url);
+      const userId = url.searchParams.get('userId');
+
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: 'userId requis' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch user email from auth
+      const { data: userData, error: userError } = await adminClient.auth.admin.getUserById(userId);
+
+      if (userError || !userData.user) {
+        console.error('Error fetching user:', userError);
+        return new Response(
+          JSON.stringify({ error: 'Utilisateur non trouvé' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          email: userData.user.email,
+          created_at: userData.user.created_at,
+          last_sign_in_at: userData.user.last_sign_in_at,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle POST request - reset password
+    if (req.method === 'POST') {
+      const body = await req.json();
+      
+      if (body.action === 'reset_password') {
+        const { userId } = body;
+
+        if (!userId) {
+          return new Response(
+            JSON.stringify({ error: 'userId requis' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Only super_admin can reset passwords
+        if (!isSuperAdmin) {
+          return new Response(
+            JSON.stringify({ error: 'Seul un super admin peut réinitialiser les mots de passe' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fetch user email
+        const { data: userData, error: userError } = await adminClient.auth.admin.getUserById(userId);
+
+        if (userError || !userData.user?.email) {
+          return new Response(
+            JSON.stringify({ error: 'Utilisateur non trouvé' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Send password reset email
+        const { error: resetError } = await adminClient.auth.resetPasswordForEmail(
+          userData.user.email,
+          { redirectTo: 'https://yafoy.lovable.app/auth' }
+        );
+
+        if (resetError) {
+          console.error('Error sending reset email:', resetError);
+          return new Response(
+            JSON.stringify({ error: 'Erreur lors de l\'envoi de l\'email' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, message: 'Email de réinitialisation envoyé' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ error: 'Action non reconnue' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Handle DELETE request
     if (req.method === 'DELETE') {
       const { userId }: DeleteRequest = await req.json();
