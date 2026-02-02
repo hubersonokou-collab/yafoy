@@ -64,20 +64,13 @@ const clientNav: NavItem[] = [
   { title: 'Paramètres', href: '/client/settings', icon: Settings },
 ];
 
-// Moderator uses client navigation with moderation mode access
-const moderatorClientNav: NavItem[] = [
-  { title: 'Accueil', href: '/client', icon: LayoutDashboard },
-  { title: 'Planifier', href: '/client/event-planner', icon: Sparkles },
-  { title: 'Catalogue', href: '/client/catalog', icon: Package },
-  { title: 'Mes commandes', href: '/client/orders', icon: ShoppingCart },
-  { title: 'Favoris', href: '/client/favorites', icon: Heart },
-  { title: 'Mode Modération', href: '/team/moderator', icon: Flag },
-  { title: 'Paramètres', href: '/client/settings', icon: Settings },
-];
+// Team navigations - each role has its own dedicated interface
 
 const accountantNav: NavItem[] = [
   { title: 'Tableau de bord', href: '/team/accountant', icon: LayoutDashboard },
-  { title: 'Transactions', href: '/admin/transactions', icon: Receipt },
+  { title: 'Transactions', href: '/team/accountant?tab=transactions', icon: Receipt },
+  { title: 'Retraits', href: '/team/accountant?tab=withdrawals', icon: Receipt },
+  { title: 'Rapports', href: '/team/accountant?tab=reports', icon: Calculator },
 ];
 
 const supervisorNav: NavItem[] = [
@@ -87,11 +80,16 @@ const supervisorNav: NavItem[] = [
 
 const moderatorNav: NavItem[] = [
   { title: 'Tableau de bord', href: '/team/moderator', icon: LayoutDashboard },
-  { title: 'Produits', href: '/admin/products', icon: Package },
+  { title: 'Signalements', href: '/team/moderator?tab=reports', icon: Flag },
+  { title: 'Produits', href: '/team/moderator?tab=products', icon: Package },
+  { title: 'Prestataires', href: '/team/moderator?tab=providers', icon: Store },
+  { title: 'Paramètres', href: '/team/moderator?tab=settings', icon: Settings },
 ];
 
 const supportNav: NavItem[] = [
   { title: 'Tableau de bord', href: '/team/support', icon: LayoutDashboard },
+  { title: 'Tickets', href: '/team/support?tab=tickets', icon: HeadphonesIcon },
+  { title: 'Créer un compte', href: '/team/support?tab=create-account', icon: Users },
 ];
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
@@ -146,16 +144,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     dashboardTitle = 'Prestataire';
     DashboardIcon = Store;
   } else if (isClientRoute || user) {
-    // Special case: moderator on client routes gets moderator navigation
-    if (isModeratorUser) {
-      navItems = moderatorClientNav;
-      dashboardTitle = 'Client (Modérateur)';
-      DashboardIcon = Flag;
-    } else {
-      navItems = clientNav;
-      dashboardTitle = 'Client';
-      DashboardIcon = Heart;
-    }
+    navItems = clientNav;
+    dashboardTitle = 'Client';
+    DashboardIcon = Heart;
   }
 
   const handleSignOut = async () => {
