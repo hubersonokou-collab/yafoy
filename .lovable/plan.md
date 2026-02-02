@@ -1,101 +1,65 @@
 
-## Diagnostic (ce qui se passe réellement)
 
-D’après le code actuel, le problème vient d’une **double navigation** au moment où tu cliques “Oui, confirmer” dans le bot :
+# Plan : Afficher la facture instantanément après validation du bot
 
-1) `SimplifiedAIChat.handleFinalConfirm()` fait bien :
-- `navigate('/client/event-planner', { state: { fromBot: true, selectedProductIds, ... } })`
+## Problème actuel
 
-2) Mais juste après, il exécute aussi :
-- `onReserve?.(selectedProducts)`
+Le composant `ClientEventPlanner` :
+1. S'initialise avec `step = 'form'` (ligne 112)
+2. Affiche le formulaire de planification
+3. Puis le `useEffect` (ligne 129) détecte `location.state?.fromBot`
+4. Charge les données et change `step` en `'invoice'`
 
-Et dans `ClientDashboard.tsx`, le `onReserve` fait :
-- `navigate('/client/event-planner')` **sans state**
+Ce délai entre le rendu initial et le `useEffect` crée le "flash" de 2 secondes où on voit le formulaire avant la facture.
 
-Résultat : la 2ème navigation **écrase** la 1ère (avec state).  
-Donc dans `/client/event-planner`, `location.state?.fromBot` est vide → la page reste sur l’étape **Planifier un événement** (form) au lieu d’aller à la facture.
+## Solution
 
----
+Initialiser intelligemment le `step` en détectant `location.state?.fromBot` **dès le premier rendu**, avant même que le `useEffect` ne s'exécute.
 
-## Objectif
+## Modification
 
-Après confirmation dans le bot, l’utilisateur doit arriver sur `/client/event-planner` avec `state.fromBot=true` et voir **directement la facture**.
+### Fichier : `src/pages/client/ClientEventPlanner.tsx`
 
----
+**Avant (ligne 112)** :
+```typescript
+const [step, setStep] = useState<'form' | 'invoice' | 'chat' | 'room'>('form');
+```
 
-## Changements à faire (solution robuste)
+**Après** :
+```typescript
+// Initialiser à 'invoice' si on vient du bot, sinon 'form'
+const [step, setStep] = useState<'form' | 'invoice' | 'chat' | 'room'>(
+  location.state?.fromBot ? 'invoice' : 'form'
+);
+```
 
-### A) Corriger la source du “state écrasé” (ClientDashboard)
-**Fichier :** `src/pages/client/ClientDashboard.tsx`
+Cela garantit que :
+- Si l'utilisateur vient du bot → la facture s'affiche **immédiatement** (pendant que les données se chargent en arrière-plan)
+- Si l'utilisateur arrive normalement → le formulaire s'affiche comme avant
 
-- Modifier le `onReserve` passé à `SimplifiedAIChat` pour qu’il **ne navigue plus** vers `/client/event-planner`.
-- À la place, il peut :
-  - simplement **fermer le widget** (`setShowChat(false)`)
-  - éventuellement afficher un toast (“Redirection vers la facture…”), mais optionnel.
+### Afficher un loader pendant le chargement
 
-Ce point à lui seul évite d’écraser le `state` envoyé par le bot.
+Ajouter un état de chargement pour afficher un loader au lieu d'une facture vide pendant que les données se chargent.
 
----
-
-### B) Rendre `SimplifiedAIChat` “anti-conflit” (même si un parent navigue)
-**Fichier :** `src/components/event-planner/SimplifiedAIChat.tsx`
-
-Actuellement : `navigate(...)` puis `onReserve(...)`  
-On va inverser l’ordre pour que **la navigation avec state soit toujours la dernière action** (donc gagnante).
-
-- Nouveau flux recommandé :
-  1. `onReserve?.(selectedProducts)` (ex: fermer le chat dans le dashboard)
-  2. `navigate('/client/event-planner', { state: {...} })` (avec `fromBot` + payload)
-
-Cela rend le bot robuste même si, plus tard, quelqu’un rebranche un `onReserve` qui fait une navigation.
+**Dans le rendu du step 'invoice'** : vérifier `loadingInvoice` et afficher un spinner si les données ne sont pas encore prêtes.
 
 ---
 
-### C) Ajout de logs de validation (temporaire, pour vérifier “à mon niveau”)
-**Fichiers :**
-- `src/components/event-planner/SimplifiedAIChat.tsx`
-- `src/pages/client/ClientEventPlanner.tsx`
+## Fichier impacté
 
-Ajouter des `console.log` temporaires pour confirmer :
-- Au clic “Oui, confirmer” : afficher le payload envoyé à `navigate`.
-- Dans `ClientEventPlanner` : afficher `location.state` au montage + lors des changements, et afficher `selectedProductIds`.
-
-But : si ça ne marche toujours pas, on saura immédiatement si :
-- le state n’arrive pas,
-- ou il arrive mais la requête produits échoue (RLS, ids vides, etc.).
+| Fichier | Modification |
+|---------|--------------|
+| `src/pages/client/ClientEventPlanner.tsx` | Initialiser `step` en fonction de `location.state?.fromBot` + afficher un loader pendant le chargement |
 
 ---
 
-## Tests (end-to-end) à faire après correction
+## Résultat attendu
 
-1) Depuis **Dashboard > Discuter** :
-   - sélectionner événement → services → jours → produits → confirmer
-   - vérifier que l’écran qui s’ouvre est **la facture** (step = invoice), pas “Quel événement ?”
+1. L'utilisateur clique "Oui, confirmer" dans le bot
+2. Navigation vers `/client/event-planner` avec `state.fromBot=true`
+3. **Instantanément** : la page affiche un loader (ou la facture)
+4. Les données se chargent en arrière-plan
+5. La facture avec les produits s'affiche
 
-2) Vérifier que la facture contient bien :
-   - les produits sélectionnés
-   - les prix et la durée (rental_days)
-   - et que le bouton paiement/commande fonctionne (si eventPlanningId est créé)
+Plus de "flash" du formulaire de planification !
 
-3) Test mobile (important) : même flux, car l’utilisateur est sur mobile.
-
----
-
-## Fichiers impactés
-
-- `src/pages/client/ClientDashboard.tsx`
-  - Retirer la navigation `navigate('/client/event-planner')` du `onReserve` (ne garder que fermeture du chat / actions UI)
-
-- `src/components/event-planner/SimplifiedAIChat.tsx`
-  - Inverser l’ordre : `onReserve` d’abord, puis `navigate` avec `state`
-
-- (Optionnel temporaire) logs
-  - `src/components/event-planner/SimplifiedAIChat.tsx`
-  - `src/pages/client/ClientEventPlanner.tsx`
-
----
-
-## Critères de réussite
-
-- Après “Oui, confirmer” dans le bot, l’utilisateur arrive sur `/client/event-planner` et voit **directement la facture**, sans repasser par “Planifier un événement”.
-- Le comportement fonctionne depuis le dashboard (où le bot est intégré), et reste compatible avec d’autres intégrations futures.
