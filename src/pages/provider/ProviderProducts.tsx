@@ -115,18 +115,68 @@ const ProviderProducts = () => {
     e.preventDefault();
     if (!user) return;
 
+    // Validate numeric inputs
+    const pricePerDay = parseFloat(form.price_per_day);
+    const depositAmount = parseFloat(form.deposit_amount) || 0;
+    const quantityAvailable = parseInt(form.quantity_available) || 1;
+
+    if (!form.price_per_day || isNaN(pricePerDay) || pricePerDay <= 0) {
+      toast({
+        title: 'Erreur de validation',
+        description: 'Le prix par jour doit être supérieur à 0.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (pricePerDay > 100000000) {
+      toast({
+        title: 'Erreur de validation',
+        description: 'Le prix par jour est trop élevé.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (isNaN(depositAmount) || depositAmount < 0) {
+      toast({
+        title: 'Erreur de validation',
+        description: 'La caution ne peut pas être négative.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (isNaN(quantityAvailable) || quantityAvailable <= 0) {
+      toast({
+        title: 'Erreur de validation',
+        description: 'La quantité doit être au moins 1.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (quantityAvailable > 100000) {
+      toast({
+        title: 'Erreur de validation',
+        description: 'La quantité est trop élevée.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       const productData = {
         provider_id: user.id,
-        name: form.name,
-        description: form.description || null,
-        price_per_day: parseFloat(form.price_per_day),
-        deposit_amount: parseFloat(form.deposit_amount) || 0,
-        quantity_available: parseInt(form.quantity_available) || 1,
+        name: form.name.trim(),
+        description: form.description?.trim() || null,
+        price_per_day: pricePerDay,
+        deposit_amount: depositAmount,
+        quantity_available: quantityAvailable,
         category_id: form.category_id || null,
-        location: form.location || null,
+        location: form.location?.trim() || null,
         is_active: form.is_active,
         images: form.images,
       };
