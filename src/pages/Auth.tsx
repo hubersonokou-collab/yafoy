@@ -83,7 +83,8 @@ const Auth = () => {
           navigate('/team/supervisor');
           break;
         case 'moderator':
-          navigate('/team/moderator');
+          // Moderator uses client interface with moderation mode
+          navigate('/client');
           break;
         case 'support':
           navigate('/team/support');
