@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, UserPlus } from 'lucide-react';
+import { Loader2, UserPlus, Eye, EyeOff } from 'lucide-react';
 
 const teamRoles = [
   { value: 'admin', label: 'Administrateur' },
@@ -42,6 +42,8 @@ const teamRoles = [
 
 const formSchema = z.object({
   email: z.string().email('Email invalide').max(255),
+  password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères').max(100),
+  fullName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères').max(100),
   role: z.enum(['admin', 'accountant', 'supervisor', 'moderator', 'support']),
 });
 
@@ -54,12 +56,15 @@ interface AddTeamMemberDialogProps {
 export const AddTeamMemberDialog = ({ onMemberAdded }: AddTeamMemberDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
+      password: '',
+      fullName: '',
       role: 'support',
     },
   });
@@ -67,22 +72,40 @@ export const AddTeamMemberDialog = ({ onMemberAdded }: AddTeamMemberDialogProps)
   const onSubmit = async (data: FormData) => {
     setLoading(true);
     try {
-      // Check if user exists by looking up their profile via email
-      // Note: This requires the user to already have an account
-      const { data: existingUsers, error: lookupError } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .limit(1);
-
-      if (lookupError) {
-        throw lookupError;
+      // Get the current session token
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !sessionData.session) {
+        throw new Error('Vous devez être connecté pour effectuer cette action');
       }
 
-      // For now, we'll show a message that the user needs to have an account first
-      // In a full implementation, this would send an invitation email
+      // Call the edge function to create the team member
+      const response = await fetch(
+        `https://dvbgytmkysaztbdqosup.supabase.co/functions/v1/create-team-member`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionData.session.access_token}`,
+          },
+          body: JSON.stringify({
+            email: data.email,
+            password: data.password,
+            fullName: data.fullName,
+            role: data.role,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erreur lors de la création du membre');
+      }
+
       toast({
-        title: 'Fonctionnalité en développement',
-        description: `L'invitation sera envoyée à ${data.email} pour le rôle de ${teamRoles.find(r => r.value === data.role)?.label}. Cette fonctionnalité nécessite une configuration email.`,
+        title: 'Membre créé avec succès',
+        description: `${data.fullName} a été ajouté en tant que ${teamRoles.find(r => r.value === data.role)?.label}`,
       });
 
       form.reset();
@@ -112,12 +135,29 @@ export const AddTeamMemberDialog = ({ onMemberAdded }: AddTeamMemberDialogProps)
         <DialogHeader>
           <DialogTitle>Ajouter un membre d'équipe</DialogTitle>
           <DialogDescription>
-            Invitez un nouveau membre à rejoindre l'équipe avec un rôle spécifique.
+            Créez un compte pour un nouveau membre de l'équipe avec un rôle spécifique.
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="fullName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nom complet</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Jean Kouamé"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="email"
@@ -126,10 +166,43 @@ export const AddTeamMemberDialog = ({ onMemberAdded }: AddTeamMemberDialogProps)
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="membre@exemple.com"
+                      placeholder="membre@yafoy.com"
                       type="email"
                       {...field}
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mot de passe</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        placeholder="••••••••"
+                        type={showPassword ? 'text' : 'password'}
+                        {...field}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -167,7 +240,7 @@ export const AddTeamMemberDialog = ({ onMemberAdded }: AddTeamMemberDialogProps)
               </Button>
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Inviter
+                Créer le membre
               </Button>
             </DialogFooter>
           </form>

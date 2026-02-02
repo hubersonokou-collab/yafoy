@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.create-notification]
 verify_jwt = false
+
+[functions.create-team-member]
+verify_jwt = false
