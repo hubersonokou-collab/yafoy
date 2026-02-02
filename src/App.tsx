@@ -36,6 +36,9 @@ import ClientFavorites from "./pages/client/ClientFavorites";
 import ClientSettings from "./pages/client/ClientSettings";
 import ClientEventPlanner from "./pages/client/ClientEventPlanner";
 
+// Team pages
+import { AccountantDashboard, SupervisorDashboard, ModeratorDashboard, SupportDashboard } from "./pages/team";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -76,6 +79,12 @@ const App = () => (
             <Route path="/client/product/:id" element={<ProductDetail />} />
             <Route path="/client/favorites" element={<ClientFavorites />} />
             <Route path="/client/settings" element={<ClientSettings />} />
+            
+            {/* Team Routes */}
+            <Route path="/team/accountant" element={<AccountantDashboard />} />
+            <Route path="/team/supervisor" element={<SupervisorDashboard />} />
+            <Route path="/team/moderator" element={<ModeratorDashboard />} />
+            <Route path="/team/support" element={<SupportDashboard />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

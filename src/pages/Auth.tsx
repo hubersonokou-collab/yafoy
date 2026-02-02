@@ -67,12 +67,29 @@ const Auth = () => {
         return;
       }
       
-      if (userRole === 'super_admin' || userRole === 'admin') {
-        navigate('/admin');
-      } else if (userRole === 'provider') {
-        navigate('/provider');
-      } else {
-        navigate('/client');
+      // Redirect based on role
+      switch (userRole) {
+        case 'super_admin':
+        case 'admin':
+          navigate('/admin');
+          break;
+        case 'provider':
+          navigate('/provider');
+          break;
+        case 'accountant':
+          navigate('/team/accountant');
+          break;
+        case 'supervisor':
+          navigate('/team/supervisor');
+          break;
+        case 'moderator':
+          navigate('/team/moderator');
+          break;
+        case 'support':
+          navigate('/team/support');
+          break;
+        default:
+          navigate('/client');
       }
     }
   }, [user, loading, userRole, navigate]);

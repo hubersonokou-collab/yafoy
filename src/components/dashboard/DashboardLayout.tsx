@@ -19,6 +19,10 @@ import {
   Heart,
   Sparkles,
   Receipt,
+  Flag,
+  HeadphonesIcon,
+  Calculator,
+  Eye,
 } from 'lucide-react';
 import { NotificationPopover } from '@/components/notifications';
 import logoYafoy from '@/assets/logo-yafoy.png';
@@ -35,6 +39,7 @@ interface DashboardLayoutProps {
 
 const superAdminNav: NavItem[] = [
   { title: 'Tableau de bord', href: '/admin', icon: LayoutDashboard },
+  { title: 'Équipe', href: '/admin/team', icon: Users },
   { title: 'Utilisateurs', href: '/admin/users', icon: Users },
   { title: 'Prestataires', href: '/admin/providers', icon: Store },
   { title: 'Produits', href: '/admin/products', icon: Package },
@@ -59,28 +64,69 @@ const clientNav: NavItem[] = [
   { title: 'Paramètres', href: '/client/settings', icon: Settings },
 ];
 
+const accountantNav: NavItem[] = [
+  { title: 'Tableau de bord', href: '/team/accountant', icon: LayoutDashboard },
+  { title: 'Transactions', href: '/admin/transactions', icon: Receipt },
+];
+
+const supervisorNav: NavItem[] = [
+  { title: 'Tableau de bord', href: '/team/supervisor', icon: LayoutDashboard },
+  { title: 'Commandes', href: '/admin/orders', icon: ShoppingCart },
+];
+
+const moderatorNav: NavItem[] = [
+  { title: 'Tableau de bord', href: '/team/moderator', icon: LayoutDashboard },
+  { title: 'Produits', href: '/admin/products', icon: Package },
+];
+
+const supportNav: NavItem[] = [
+  { title: 'Tableau de bord', href: '/team/support', icon: LayoutDashboard },
+];
+
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const { user, userRole, isSuperAdmin, isAdmin, isProvider, signOut } = useAuth();
+  const { user, userRole, isSuperAdmin, isAdmin, isProvider, isAccountant, isSupervisor, isModerator, isSupport, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Determine which navigation to show based on the current route path
-  // This ensures consistent navigation regardless of role loading state
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isProviderRoute = location.pathname.startsWith('/provider');
   const isClientRoute = location.pathname.startsWith('/client');
+  const isTeamRoute = location.pathname.startsWith('/team');
 
   const isSuperAdminOrAdmin = isSuperAdmin() || isAdmin();
   const isProviderUser = isProvider();
+  const isAccountantUser = isAccountant();
+  const isSupervisorUser = isSupervisor();
+  const isModeratorUser = isModerator();
+  const isSupportUser = isSupport();
   
-  // Default to client navigation - this is the most common case
+  // Default to client navigation
   let navItems: NavItem[] = clientNav;
   let dashboardTitle = 'Client';
   let DashboardIcon = Heart;
 
   // Determine navigation based on route first, then role as fallback
-  if (isAdminRoute && isSuperAdminOrAdmin) {
+  if (isTeamRoute) {
+    if (location.pathname.includes('/accountant') && (isAccountantUser || isSuperAdminOrAdmin)) {
+      navItems = accountantNav;
+      dashboardTitle = 'Comptable';
+      DashboardIcon = Calculator;
+    } else if (location.pathname.includes('/supervisor') && (isSupervisorUser || isSuperAdminOrAdmin)) {
+      navItems = supervisorNav;
+      dashboardTitle = 'Superviseur';
+      DashboardIcon = Eye;
+    } else if (location.pathname.includes('/moderator') && (isModeratorUser || isSuperAdminOrAdmin)) {
+      navItems = moderatorNav;
+      dashboardTitle = 'Modérateur';
+      DashboardIcon = Flag;
+    } else if (location.pathname.includes('/support') && (isSupportUser || isSuperAdminOrAdmin)) {
+      navItems = supportNav;
+      dashboardTitle = 'Support';
+      DashboardIcon = HeadphonesIcon;
+    }
+  } else if (isAdminRoute && isSuperAdminOrAdmin) {
     navItems = superAdminNav;
     dashboardTitle = 'Administration';
     DashboardIcon = Shield;
@@ -89,7 +135,6 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     dashboardTitle = 'Prestataire';
     DashboardIcon = Store;
   } else if (isClientRoute || user) {
-    // For client routes or any logged-in user on client paths, show full client nav
     navItems = clientNav;
     dashboardTitle = 'Client';
     DashboardIcon = Heart;
