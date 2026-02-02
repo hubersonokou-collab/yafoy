@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { ProductCard } from '@/components/products/ProductCard';
+import { usePagination } from '@/hooks/usePagination';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -315,9 +317,28 @@ const ClientCatalog = () => {
     return matchesSearch && matchesCategory && matchesEvent;
   });
 
-  // Group products by category for section display
+  // Pagination for filtered products
+  const {
+    currentPage,
+    totalPages,
+    paginatedItems: paginatedProducts,
+    startIndex,
+    endIndex,
+    totalItems,
+    goToNextPage,
+    goToPreviousPage,
+    goToPage,
+    setCurrentPage,
+  } = usePagination(filteredProducts, { itemsPerPage: 12 });
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, categoryFilter, eventFilter]);
+
+  // Group paginated products by category for section display
   const productsByCategory = categories.reduce((acc, cat) => {
-    const catProducts = filteredProducts.filter(p => p.category_id === cat.id);
+    const catProducts = paginatedProducts.filter(p => p.category_id === cat.id);
     if (catProducts.length > 0) {
       acc[cat.id] = { category: cat, products: catProducts };
     }
@@ -599,6 +620,18 @@ const ClientCatalog = () => {
                 </div>
               </section>
             ))}
+            
+            {/* Pagination */}
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              startIndex={startIndex}
+              endIndex={endIndex}
+              totalItems={totalItems}
+              onPreviousPage={goToPreviousPage}
+              onNextPage={goToNextPage}
+              onGoToPage={goToPage}
+            />
           </div>
         )}
 
