@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { AddTeamMemberDialog, TeamMemberActions } from '@/components/team';
+import { AddTeamMemberDialog, TeamMemberActions, TeamMemberDetailsDialog } from '@/components/team';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -36,6 +36,8 @@ const AdminTeam = () => {
   const navigate = useNavigate();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -167,7 +169,11 @@ const AdminTeam = () => {
                   return (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between rounded-lg border p-4"
+                      className="flex items-center justify-between rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => {
+                        setSelectedMember(member);
+                        setShowDetailsDialog(true);
+                      }}
                     >
                       <div className="flex items-center gap-4">
                         <Avatar>
@@ -195,12 +201,14 @@ const AdminTeam = () => {
                           <Icon className="h-3 w-3" />
                           {config.label}
                         </Badge>
-                        <TeamMemberActions
-                          member={member}
-                          currentUserRole={userRole || ''}
-                          currentUserId={user?.id || ''}
-                          onMemberUpdated={fetchTeamMembers}
-                        />
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <TeamMemberActions
+                            member={member}
+                            currentUserRole={userRole || ''}
+                            currentUserId={user?.id || ''}
+                            onMemberUpdated={fetchTeamMembers}
+                          />
+                        </div>
                       </div>
                     </div>
                   );
@@ -209,6 +217,18 @@ const AdminTeam = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Details Dialog */}
+        <TeamMemberDetailsDialog
+          member={selectedMember}
+          open={showDetailsDialog}
+          onOpenChange={setShowDetailsDialog}
+          currentUserRole={userRole || ''}
+          onMemberUpdated={() => {
+            fetchTeamMembers();
+            setShowDetailsDialog(false);
+          }}
+        />
       </div>
     </DashboardLayout>
   );
