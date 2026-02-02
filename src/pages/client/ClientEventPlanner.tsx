@@ -109,7 +109,10 @@ const ClientEventPlanner = () => {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   
-  const [step, setStep] = useState<'form' | 'invoice' | 'chat' | 'room'>('form');
+  // Initialiser à 'invoice' si on vient du bot, sinon 'form' - évite le flash du formulaire
+  const [step, setStep] = useState<'form' | 'invoice' | 'chat' | 'room'>(
+    location.state?.fromBot ? 'invoice' : 'form'
+  );
   const [eventData, setEventData] = useState<EventFormData | null>(null);
   const [eventPlanningId, setEventPlanningId] = useState<string | null>(null);
   const [chatRoomId, setChatRoomId] = useState<string | null>(null);
@@ -779,12 +782,12 @@ const ClientEventPlanner = () => {
         )}
 
         {/* Invoice Step */}
-        {step === 'invoice' && eventData && (
+        {step === 'invoice' && (
           <div className="space-y-6">
-            {loadingInvoice ? (
+            {loadingInvoice || !eventData ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-lg font-medium text-muted-foreground">Génération de votre facture...</p>
+                <p className="text-lg font-medium text-muted-foreground">Chargement de votre facture...</p>
               </div>
             ) : invoiceProducts.length === 0 ? (
               <Card>
