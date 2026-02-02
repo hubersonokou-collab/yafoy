@@ -1,162 +1,279 @@
 
 
-# Plan: Paiement Global avec Confirmation Individuelle des Prestataires
+# Plan d'Implementation - Gestion de l'Equipe YAFOY
 
-## Résumé
+## Resume
 
-Ce plan implémente un système où :
-1. Le client paie la facture **globalement** (un seul paiement pour tous les prestataires)
-2. Chaque prestataire doit **confirmer individuellement** sa partie de la commande dans son compte
-3. Les commandes restent séparées mais liées par un identifiant de groupe
+Ce plan ajoute la fonctionnalite complete de gestion d'equipe permettant aux administrateurs de creer des membres avec email/mot de passe et de leur attribuer des roles specifiques. Chaque role aura son propre tableau de bord avec les fonctionnalites appropriees.
 
 ---
 
-## Situation Actuelle
+## Analyse de l'Existant
 
-- Le client voit une facture globale avec tous les prestataires
-- En cliquant "Confirmer la commande", des commandes séparées sont créées pour chaque prestataire
-- Chaque prestataire peut déjà accepter/refuser les commandes via `OrderActions`
-- Le paiement Paystack fonctionne mais uniquement pour une commande individuelle
+### Roles deja configures dans la base de donnees
+- super_admin, admin, provider, client, accountant, supervisor, moderator, support
 
----
+### Interfaces existantes
+- Admin : Dashboard complet avec gestion utilisateurs, produits, commandes, transactions
+- Provider : Dashboard, produits, commandes, parametres
+- Client : Dashboard, catalogue, commandes, favoris, planificateur
 
-## Changements Proposés
-
-### 1. Ajouter un Identifiant de Groupe de Commandes
-
-Créer un champ pour lier les commandes issues de la même planification d'événement.
-
-**Migration SQL** :
-- Ajouter une colonne `group_id` à la table `orders` pour lier les commandes du même événement
-
-### 2. Modifier le Flux de Paiement Global
-
-**Fichier** : `src/pages/client/ClientEventPlanner.tsx`
-
-Après confirmation de la facture :
-1. Créer toutes les commandes individuelles avec un `group_id` commun
-2. Calculer le total global (sous-total + 5% frais de service)
-3. Afficher un dialogue de paiement avec le montant total
-4. Rediriger vers Paystack pour payer le montant global
-5. Une fois le paiement confirmé, les commandes passent en statut "pending" (en attente de confirmation prestataire)
-
-### 3. Créer un Composant de Paiement Global
-
-**Fichier** : `src/components/payment/GlobalPaymentDialog.tsx`
-
-Ce composant affiche :
-- Le récapitulatif des commandes par prestataire
-- Le sous-total, les frais de service (5%), et le total TTC
-- Le bouton de paiement Paystack pour le montant total
-- Une indication que chaque prestataire devra confirmer sa partie
-
-### 4. Mettre à Jour l'Edge Function Paystack
-
-**Fichier** : `supabase/functions/paystack/index.ts`
-
-Ajouter la gestion du paiement groupé :
-- Accepter une liste d'IDs de commandes (`orderIds`) au lieu d'un seul
-- Vérifier que l'utilisateur possède toutes les commandes
-- Après paiement réussi, mettre à jour le `deposit_paid` sur toutes les commandes
-- Envoyer une notification à chaque prestataire pour confirmer
-
-### 5. Interface Prestataire - Confirmation Individuelle
-
-L'interface prestataire (`ProviderOrders.tsx`) fonctionne déjà correctement :
-- Les prestataires voient leurs commandes en statut "pending"
-- Ils peuvent cliquer "Accepter" ou "Refuser" via `OrderActions`
-- Aucun changement nécessaire - le système actuel convient parfaitement
-
-### 6. Notifications aux Prestataires
-
-Après le paiement global réussi, envoyer une notification à chaque prestataire :
-- Type : `new_order`
-- Message : "Nouvelle commande payée - Confirmation requise"
-- Inclure les détails : montant, type d'événement, date
+### Ce qui manque
+1. Tableaux de bord dedies pour les roles d'equipe (Comptable, Superviseur, Moderateur, Support)
+2. Edge function pour creer des utilisateurs (l'admin doit pouvoir creer des comptes)
+3. Navigation specifique pour chaque role dans DashboardLayout
+4. Formulaire complet d'ajout de membre avec email + mot de passe
 
 ---
 
-## Fichiers à Créer
+## Architecture Proposee
+
+```text
++------------------+     +------------------------+     +-------------------+
+|  AddTeamMember   | --> | Edge Function          | --> | Supabase Auth     |
+|  Dialog (Admin)  |     | create-team-member     |     | + user_roles      |
++------------------+     +------------------------+     +-------------------+
+        |                         |
+        v                         v
++------------------+     +------------------------+
+| Email + Password |     | Service Role Key       |
+| + Role Selection |     | (cree l'utilisateur)   |
++------------------+     +------------------------+
+```
+
+---
+
+## Etapes d'Implementation
+
+### Etape 1 : Edge Function pour creer des membres d'equipe
+
+Creer `supabase/functions/create-team-member/index.ts` qui :
+- Verifie que l'appelant est admin/super_admin
+- Utilise le service role key pour creer l'utilisateur dans auth.users
+- Insere le role dans user_roles
+- Cree le profil dans profiles
+- Retourne les informations du nouvel utilisateur
+
+### Etape 2 : Mettre a jour AddTeamMemberDialog
+
+Modifier le composant pour :
+- Ajouter un champ mot de passe
+- Ajouter un champ nom complet
+- Appeler l'edge function pour creer le membre
+- Afficher un message de succes avec les informations
+
+### Etape 3 : Creer les tableaux de bord d'equipe
+
+#### 3.1 Tableau de bord Comptable (`/team/accountant`)
+- Acces aux transactions (deja accessible via AdminTransactions)
+- Statistiques financieres
+- Gestion des retraits prestataires
+- Rapports financiers
+
+#### 3.2 Tableau de bord Superviseur (`/team/supervisor`)
+- Vue des commandes avec details complets
+- Informations clients et prestataires
+- Contacts et localisations
+
+#### 3.3 Tableau de bord Moderateur (`/team/moderator`)
+- Verification des profils prestataires
+- Controle des contenus (photos/descriptions)
+- Gestion des signalements (reports)
+- Validation/blocage de produits
+
+#### 3.4 Tableau de bord Support (`/team/support`)
+- Gestion des tickets de support
+- Messagerie avec les utilisateurs
+- Aide aux plaintes
+
+### Etape 4 : Mettre a jour DashboardLayout
+
+Ajouter les navigations specifiques pour chaque role :
+- accountantNav : Transactions, Retraits, Rapports
+- supervisorNav : Commandes, Suivi
+- moderatorNav : Verification, Signalements, Produits
+- supportNav : Tickets, Assistance
+
+### Etape 5 : Ajouter les routes dans App.tsx
+
+Nouvelles routes pour les roles d'equipe :
+- `/team/accountant/*`
+- `/team/supervisor/*`
+- `/team/moderator/*`
+- `/team/support/*`
+
+### Etape 6 : Ajouter "Equipe" dans la navigation admin
+
+Ajouter l'option "Equipe" dans le menu admin (si pas deja present) pointant vers `/admin/team`
+
+---
+
+## Fichiers a Creer
 
 | Fichier | Description |
 |---------|-------------|
-| `src/components/payment/GlobalPaymentDialog.tsx` | Dialogue de paiement pour plusieurs commandes |
+| `supabase/functions/create-team-member/index.ts` | Edge function creation utilisateur |
+| `src/pages/team/AccountantDashboard.tsx` | Dashboard comptable |
+| `src/pages/team/SupervisorDashboard.tsx` | Dashboard superviseur |
+| `src/pages/team/ModeratorDashboard.tsx` | Dashboard moderateur |
+| `src/pages/team/SupportDashboard.tsx` | Dashboard support |
 
-## Fichiers à Modifier
+## Fichiers a Modifier
 
-| Fichier | Changement |
-|---------|------------|
-| `src/pages/client/ClientEventPlanner.tsx` | Intégrer le paiement global après confirmation |
-| `supabase/functions/paystack/index.ts` | Gérer les paiements groupés |
+| Fichier | Modifications |
+|---------|---------------|
+| `src/components/team/AddTeamMemberDialog.tsx` | Ajouter champs mot de passe et nom, appeler edge function |
+| `src/components/dashboard/DashboardLayout.tsx` | Ajouter navigations pour chaque role d'equipe |
+| `src/App.tsx` | Ajouter routes /team/* |
+| `src/hooks/useAuth.tsx` | Deja OK - les fonctions role check existent |
 
-## Migration SQL
+---
+
+## Details Techniques
+
+### Edge Function create-team-member
 
 ```text
-ALTER TABLE orders ADD COLUMN group_id uuid;
-CREATE INDEX idx_orders_group_id ON orders(group_id);
+POST /functions/v1/create-team-member
+Headers: Authorization: Bearer <user_token>
+Body: {
+  email: string,
+  password: string,
+  fullName: string,
+  role: 'admin' | 'accountant' | 'supervisor' | 'moderator' | 'support'
+}
 ```
 
----
+Securite :
+- Verification JWT de l'appelant
+- Verification que l'appelant est admin ou super_admin
+- Utilisation du SUPABASE_SERVICE_ROLE_KEY pour creer l'utilisateur
 
-## Flux Utilisateur Final
+### Navigation par Role
 
 ```text
-1. Client remplit le formulaire de planification
-                    ↓
-2. Facture pro forma générée (éditable)
-                    ↓
-3. Client clique "Payer la commande"
-                    ↓
-4. Dialogue de paiement global s'affiche :
-   - Récapitulatif par prestataire
-   - Total avec frais de service (5%)
-   - Bouton "Payer [X] FCFA"
-                    ↓
-5. Redirection vers Paystack (paiement unique)
-                    ↓
-6. Après paiement réussi :
-   - Commandes créées avec statut "pending"
-   - Notifications envoyées aux prestataires
-   - Client redirigé vers "Mes commandes"
-                    ↓
-7. Chaque PRESTATAIRE voit la commande dans son compte
-                    ↓
-8. Prestataire clique "Accepter" → statut "confirmed"
-   ou "Refuser" → statut "cancelled"
+Comptable:
+- Tableau de bord -> /team/accountant
+- Transactions -> /admin/transactions (acces partage)
+- Retraits -> /team/accountant/withdrawals
+
+Superviseur:
+- Tableau de bord -> /team/supervisor
+- Commandes -> /team/supervisor/orders
+
+Moderateur:
+- Tableau de bord -> /team/moderator
+- Verification -> /team/moderator/verification
+- Signalements -> /team/moderator/reports
+
+Support:
+- Tableau de bord -> /team/support
+- Tickets -> /team/support/tickets
 ```
 
----
+### Redirection apres connexion
 
-## Détails Techniques
-
-### Gestion du Paiement Groupé
-
-Le paiement Paystack sera initialisé avec :
-- Un `group_id` unique (UUID)
-- Le montant total de toutes les commandes + frais de service
-- Les métadonnées contenant tous les `order_id` concernés
-
-### Après Vérification du Paiement
-
-L'edge function `paystack/verify` :
-1. Récupère tous les `order_id` depuis les métadonnées
-2. Met à jour `deposit_paid` sur chaque commande
-3. Envoie les notifications aux prestataires via `create-notification`
-
-### Sécurité
-
-- Vérification JWT pour toutes les opérations
-- Le client ne peut payer que ses propres commandes
-- Les prestataires ne peuvent confirmer que leurs propres commandes
-- Les politiques RLS existantes protègent déjà les opérations
+Modifier `Auth.tsx` pour rediriger les roles d'equipe vers leur dashboard :
+- accountant -> /team/accountant
+- supervisor -> /team/supervisor
+- moderator -> /team/moderator
+- support -> /team/support
 
 ---
 
-## Résumé des Livrables
+## Estimation
 
-1. **Paiement global** : Un seul paiement Paystack pour toutes les commandes
-2. **Commandes liées** : Toutes les commandes partagent un `group_id`
-3. **Confirmation individuelle** : Chaque prestataire confirme sa commande séparément
-4. **Notifications** : Les prestataires sont notifiés après le paiement
-5. **Suivi client** : Le client peut suivre l'état de confirmation de chaque prestataire
+- Edge Function : 1 fichier
+- Dashboards equipe : 4 fichiers
+- Modifications : 4 fichiers
+- Total : ~9 fichiers a creer/modifier
+
+
+
+
+
+
+
+
+
+
+en reumé tu doit ajouter sa :
+
+4️⃣ Modérateur
+👉 Le gardien de la qualité
+
+Rôles :
+
+Vérifier les profils prestataires
+
+Contrôler les contenus (photos, descriptions)
+
+Supprimer les faux comptes
+
+Gérer les signalements
+
+Aider à maintenir la crédibilité du site
+
+📌 Utile quand la plateforme grandit
+
+5️⃣ Gestionnaire de paiements / Finance
+👉 L’argent du site 💰
+
+Rôles :
+
+Suivre les paiements
+
+Gérer les commissions
+
+Valider les retraits des prestataires
+
+Gérer Mobile Money / cartes bancaires
+
+Produire des rapports financiers
+
+📌 Peut être combiné avec l’admin au début
+
+6️⃣ Support Client
+👉 L’assistance utilisateurs
+
+Rôles :
+
+Répondre aux questions clients et prestataires
+
+Aider à la création de comptes
+
+Gérer les plaintes simples
+
+Accompagner les nouveaux utilisateurs
+
+📌 Très important pour la confiance
+
+7️⃣ Visiteur (Non connecté)
+👉 Les curieux 👀
+
+Droits :
+
+Voir les prestataires
+
+Consulter les services
+
+Lire les avis
+
+MAIS pas de contact direct sans inscription
+
+📌 Objectif : pousser à l’inscription
+
+8️⃣ (Optionnel) Partenaire / Sponsor
+👉 Pour la monétisation
+
+Rôles :
+
+Avoir une visibilité spéciale
+
+Mettre des annonces sponsorisées
+
+Être mis en avant sur la page d’accueil
+
+
+
 
