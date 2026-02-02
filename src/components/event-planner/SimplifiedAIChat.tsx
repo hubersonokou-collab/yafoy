@@ -237,7 +237,19 @@ export const SimplifiedAIChat = ({ onProductSelect, onReserve, standalone = fals
   };
 
   const handleFinalConfirm = () => {
-    // Toujours naviguer avec les données complètes, quel que soit le mode
+    console.log('[SimplifiedAIChat] handleFinalConfirm - Navigating with state:', {
+      fromBot: true,
+      selectedProductIds: selectedProducts,
+      eventType: selectedEvent,
+      rentalDays: rentalDays,
+      servicesNeeded: selectedServices,
+    });
+    
+    // 1. D'abord appeler le callback (qui peut fermer le chat, etc.)
+    // IMPORTANT: Ce callback ne doit PAS naviguer, sinon il écrasera le state
+    onReserve?.(selectedProducts);
+    
+    // 2. Ensuite naviguer avec les données complètes (cette navigation sera la dernière donc gagnante)
     navigate('/client/event-planner', {
       state: {
         fromBot: true,
@@ -248,9 +260,6 @@ export const SimplifiedAIChat = ({ onProductSelect, onReserve, standalone = fals
         servicesNeeded: selectedServices,
       }
     });
-    
-    // Appeler également le callback si fourni (pour d'éventuels autres usages)
-    onReserve?.(selectedProducts);
   };
 
   const handleQuickReply = (reply: string) => {
