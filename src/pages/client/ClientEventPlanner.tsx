@@ -12,23 +12,24 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Loader2, 
-  ArrowLeft, 
-  MessageSquare, 
-  Users,
-  Calendar,
-  Wallet,
-  Sparkles,
-  Heart,
-  Cake,
-  Baby,
-  Church,
-  Building2,
-  PartyPopper,
-  Receipt,
-  CreditCard,
-} from 'lucide-react';
+ import { 
+   Loader2, 
+   ArrowLeft, 
+   MessageSquare, 
+   Users,
+   Calendar,
+   Wallet,
+   Sparkles,
+   Heart,
+   Cake,
+   Baby,
+   Church,
+   Building2,
+   PartyPopper,
+   Receipt,
+   CalendarCheck,
+ } from 'lucide-react';
+ import { assignOrganizer } from '@/hooks/useOrganizerAssignment';
 
 interface EventFormData {
   eventType: string;
@@ -127,6 +128,9 @@ const ClientEventPlanner = () => {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [orderSummaries, setOrderSummaries] = useState<OrderSummary[]>([]);
   const [groupId, setGroupId] = useState<string | null>(null);
+ 
+   // Reservation state
+   const [isCreatingReservation, setIsCreatingReservation] = useState(false);
 
   // Détection des données venant du bot
   useEffect(() => {
@@ -478,107 +482,83 @@ const ClientEventPlanner = () => {
     ));
   };
 
-  const handleConfirmOrder = async () => {
-    if (!user || !eventPlanningId || invoiceProducts.length === 0) return;
-
-    setIsCreatingOrder(true);
+   const handleReservation = async () => {
+     if (!user || !eventPlanningId || invoiceProducts.length === 0) return;
+ 
+     setIsCreatingReservation(true);
     try {
-      // Generate a unique group ID for this set of orders
-      const newGroupId = crypto.randomUUID();
-      
-      // Group products by provider
-      const productsByProvider = invoiceProducts.reduce((acc, product) => {
-        if (!acc[product.provider_id]) {
-          acc[product.provider_id] = {
-            products: [],
-            providerName: product.provider_name || 'Prestataire',
-          };
-        }
-        acc[product.provider_id].products.push(product);
-        return acc;
-      }, {} as Record<string, { products: RecommendedProduct[]; providerName: string }>);
+       // Assign an organizer to this client
+       const organizerId = await assignOrganizer(user.id);
+       
+       if (!organizerId) {
+         throw new Error('Aucun organisateur disponible');
+       }
 
-      const createdOrders: OrderSummary[] = [];
+       // Update event planning status to pending_contact
+       await supabase
+         .from('event_planning_requests')
+         .update({
+           ai_recommendations: invoiceProducts.map(p => p.id),
+           status: 'pending_contact',
+         })
+         .eq('id', eventPlanningId);
 
-      // Create an order for each provider with the shared group_id
-      for (const [providerId, { products, providerName }] of Object.entries(productsByProvider)) {
-        const subtotal = products.reduce((sum, p) => sum + (p.price_per_day * p.rental_days * p.quantity), 0);
-        
-        const { data: order, error: orderError } = await supabase
-          .from('orders')
-          .insert({
-            client_id: user.id,
-            provider_id: providerId,
-            status: 'pending',
-            total_amount: subtotal,
-            deposit_paid: 0,
-            event_date: eventData?.eventDate || null,
-            event_location: eventData?.eventLocation || null,
-            notes: `Commande groupée - ${EVENT_TYPE_LABELS[eventData?.eventType || 'autre']}${eventData?.eventName ? ` - ${eventData.eventName}` : ''}`,
-            group_id: newGroupId,
-          })
-          .select()
-          .single();
-
-        if (orderError) throw orderError;
-
-        // Create order items
-        const orderItems: OrderSummary['items'] = [];
-        for (const product of products) {
-          const { error: itemError } = await supabase
-            .from('order_items')
-            .insert({
-              order_id: order.id,
-              product_id: product.id,
-              quantity: product.quantity,
-              price_per_day: product.price_per_day,
-              rental_days: product.rental_days,
-              subtotal: product.price_per_day * product.rental_days * product.quantity,
-            });
-
-          if (itemError) throw itemError;
-
-          orderItems.push({
-            name: product.name,
-            quantity: product.quantity,
-            rentalDays: product.rental_days,
-            pricePerDay: product.price_per_day,
-            subtotal: product.price_per_day * product.rental_days * product.quantity,
-          });
-        }
-
-        createdOrders.push({
-          orderId: order.id,
-          providerId,
-          providerName,
-          amount: subtotal,
-          items: orderItems,
-        });
-      }
-
-      // Update event planning status
-      await supabase
-        .from('event_planning_requests')
-        .update({
-          ai_recommendations: invoiceProducts.map(p => p.id),
-          status: 'pending_payment',
-        })
-        .eq('id', eventPlanningId);
-
-      // Set state and show payment dialog
-      setGroupId(newGroupId);
-      setOrderSummaries(createdOrders);
-      setShowPaymentDialog(true);
+       // Create a chat room for client-organizer communication
+       const roomName = eventData?.eventName || `Réservation ${EVENT_TYPE_LABELS[eventData?.eventType || 'autre']}`;
+       const { data: room, error: roomError } = await supabase
+         .from('chat_rooms')
+         .insert({
+           event_planning_id: eventPlanningId,
+           name: roomName,
+           created_by: user.id,
+         })
+         .select()
+         .single();
+ 
+       if (roomError) throw roomError;
+ 
+       // Add client as participant
+       await supabase.from('chat_room_participants').insert({
+         room_id: room.id,
+         user_id: user.id,
+         role: 'client',
+       });
+ 
+       // Add organizer as participant
+       await supabase.from('chat_room_participants').insert({
+         room_id: room.id,
+         user_id: organizerId,
+         role: 'yafoy_organizer',
+       });
+ 
+       // Save selected products for reference
+       for (const product of invoiceProducts) {
+         await supabase.from('event_selected_providers').insert({
+           event_planning_id: eventPlanningId,
+           provider_id: product.provider_id,
+           product_id: product.id,
+           status: 'pending',
+         });
+       }
+ 
+       toast({
+         title: 'Réservation créée !',
+         description: 'Vous allez être mis en contact avec un organisateur YAFOY',
+         className: 'bg-green-600 text-white',
+       });
+ 
+       // Navigate to reservation chat page
+       navigate(`/client/reservation/${eventPlanningId}`);
 
     } catch (error) {
-      console.error('Error creating orders:', error);
+       console.error('Error creating reservation:', error);
       toast({
         title: 'Erreur',
-        description: "Impossible de créer les commandes",
+         description: "Impossible de créer la réservation",
         variant: 'destructive',
       });
     } finally {
-      setIsCreatingOrder(false);
+       setIsCreatingReservation(false);
     }
   };
 
@@ -832,15 +812,15 @@ const ClientEventPlanner = () => {
                   <Button 
                     size="lg" 
                     className="flex-1 h-14 bg-green-600 hover:bg-green-700"
-                    onClick={handleConfirmOrder}
-                    disabled={isCreatingOrder}
+                     onClick={handleReservation}
+                     disabled={isCreatingReservation}
                   >
-                    {isCreatingOrder ? (
+                     {isCreatingReservation ? (
                       <Loader2 className="h-5 w-5 animate-spin mr-2" />
                     ) : (
-                      <CreditCard className="mr-2 h-5 w-5" />
+                       <CalendarCheck className="mr-2 h-5 w-5" />
                     )}
-                    Payer la commande
+                     RÉSERVER
                   </Button>
                 </div>
               </>
