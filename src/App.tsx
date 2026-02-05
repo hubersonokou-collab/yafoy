@@ -35,9 +35,13 @@ import ProductDetail from "./pages/client/ProductDetail";
 import ClientFavorites from "./pages/client/ClientFavorites";
 import ClientSettings from "./pages/client/ClientSettings";
 import ClientEventPlanner from "./pages/client/ClientEventPlanner";
+ import ClientReservation from "./pages/client/ClientReservation";
 
 // Team pages
 import { AccountantDashboard, SupervisorDashboard, ModeratorDashboard, SupportDashboard } from "./pages/team";
+ 
+ // Organizer pages
+ import OrganizerDashboard from "./pages/organizer/OrganizerDashboard";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +78,7 @@ const App = () => (
             {/* Client Routes */}
             <Route path="/client" element={<ClientDashboard />} />
             <Route path="/client/event-planner" element={<ClientEventPlanner />} />
+             <Route path="/client/reservation/:id" element={<ClientReservation />} />
             <Route path="/client/catalog" element={<ClientCatalog />} />
             <Route path="/client/orders" element={<ClientOrders />} />
             <Route path="/client/product/:id" element={<ProductDetail />} />
@@ -85,6 +90,10 @@ const App = () => (
             <Route path="/team/supervisor" element={<SupervisorDashboard />} />
             <Route path="/team/moderator" element={<ModeratorDashboard />} />
             <Route path="/team/support" element={<SupportDashboard />} />
+             
+             {/* Organizer Routes */}
+             <Route path="/organizer" element={<OrganizerDashboard />} />
+             <Route path="/organizer/dashboard" element={<OrganizerDashboard />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

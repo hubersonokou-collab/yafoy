@@ -158,6 +158,36 @@ export type Database = {
           },
         ]
       }
+      client_organizer_assignments: {
+        Row: {
+          assigned_at: string
+          client_id: string
+          created_at: string
+          id: string
+          organizer_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string
+          client_id: string
+          created_at?: string
+          id?: string
+          organizer_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          organizer_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       event_planning_requests: {
         Row: {
           additional_notes: string | null
@@ -844,6 +874,7 @@ export type Database = {
         | "supervisor"
         | "moderator"
         | "support"
+        | "organizer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -996,6 +1027,7 @@ export const Constants = {
         "supervisor",
         "moderator",
         "support",
+        "organizer",
       ],
     },
   },
