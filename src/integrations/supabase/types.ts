@@ -829,6 +829,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_chat_room_participants: {
+        Args: { p_participants: Json; p_room_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]
