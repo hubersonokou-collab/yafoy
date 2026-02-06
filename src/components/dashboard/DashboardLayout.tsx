@@ -23,6 +23,7 @@ import {
   HeadphonesIcon,
   Calculator,
   Eye,
+  ClipboardList,
 } from 'lucide-react';
 import { NotificationPopover } from '@/components/notifications';
 import logoYafoy from '@/assets/logo-yafoy.png';
@@ -92,8 +93,13 @@ const supportNav: NavItem[] = [
   { title: 'Créer un compte', href: '/team/support?tab=create-account', icon: Users },
 ];
 
+const organizerNav: NavItem[] = [
+  { title: 'Tableau de bord', href: '/organizer', icon: LayoutDashboard },
+  { title: 'Paramètres', href: '/organizer/settings', icon: Settings },
+];
+
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const { user, userRole, isSuperAdmin, isAdmin, isProvider, isAccountant, isSupervisor, isModerator, isSupport, signOut } = useAuth();
+  const { user, userRole, isSuperAdmin, isAdmin, isProvider, isAccountant, isSupervisor, isModerator, isSupport, isOrganizer, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -103,6 +109,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isProviderRoute = location.pathname.startsWith('/provider');
   const isClientRoute = location.pathname.startsWith('/client');
   const isTeamRoute = location.pathname.startsWith('/team');
+  const isOrganizerRoute = location.pathname.startsWith('/organizer');
 
   const isSuperAdminOrAdmin = isSuperAdmin() || isAdmin();
   const isProviderUser = isProvider();
@@ -110,6 +117,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isSupervisorUser = isSupervisor();
   const isModeratorUser = isModerator();
   const isSupportUser = isSupport();
+  const isOrganizerUser = isOrganizer();
   
   // Default to client navigation
   let navItems: NavItem[] = clientNav;
@@ -135,6 +143,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       dashboardTitle = 'Support';
       DashboardIcon = HeadphonesIcon;
     }
+  } else if (isOrganizerRoute && (isOrganizerUser || isSuperAdminOrAdmin)) {
+    navItems = organizerNav;
+    dashboardTitle = 'Organisateur';
+    DashboardIcon = ClipboardList;
   } else if (isAdminRoute && isSuperAdminOrAdmin) {
     navItems = superAdminNav;
     dashboardTitle = 'Administration';

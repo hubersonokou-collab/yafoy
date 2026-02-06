@@ -321,10 +321,10 @@ const OrganizerDashboard = () => {
                     onClick={() => setSelectedReservation(res)}
                   >
                     <p className={`font-medium text-sm ${selectedReservation?.id === res.id ? 'text-primary-foreground' : ''}`}>
-                      Réservation - {res.eventName || EVENT_TYPE_LABELS[res.eventType]}
+                      {res.clientName}
                     </p>
                     <p className={`text-xs ${selectedReservation?.id === res.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                      {res.eventDate
+                      {res.eventName || EVENT_TYPE_LABELS[res.eventType]} · {res.eventDate
                         ? format(new Date(res.eventDate), 'd MMM', { locale: fr })
                         : format(new Date(res.createdAt), 'd MMM', { locale: fr })}
                     </p>
@@ -361,17 +361,21 @@ const OrganizerDashboard = () => {
                   ) : (
                     messages.map((msg) => {
                       const isOwn = msg.sender_id === user?.id;
+                      const senderName = (msg as any).sender?.full_name || selectedReservation?.clientName || 'Client';
+                      const senderAvatar = (msg as any).sender?.avatar_url;
+                      const senderInitial = senderName.charAt(0).toUpperCase();
                       return (
                         <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                           <div className="flex items-end gap-2 max-w-[80%]">
                             {!isOwn && (
                               <Avatar className="h-8 w-8">
-                                <AvatarFallback className="text-xs bg-muted">U</AvatarFallback>
+                                <AvatarImage src={senderAvatar} />
+                                <AvatarFallback className="text-xs bg-muted">{senderInitial}</AvatarFallback>
                               </Avatar>
                             )}
                             <div>
                               {!isOwn && (
-                                <p className="text-xs text-muted-foreground mb-1">Utilisateur</p>
+                                <p className="text-xs text-muted-foreground mb-1">{senderName}</p>
                               )}
                               {isOwn && (
                                 <p className="text-xs text-muted-foreground mb-1 text-right">Moi</p>

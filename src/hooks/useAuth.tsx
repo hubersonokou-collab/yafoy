@@ -3,7 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-type UserRole = 'client' | 'provider' | 'admin' | 'super_admin' | 'accountant' | 'supervisor' | 'moderator' | 'support';
+type UserRole = 'client' | 'provider' | 'admin' | 'super_admin' | 'accountant' | 'supervisor' | 'moderator' | 'support' | 'organizer';
 
 interface AuthContextType {
   user: User | null;
@@ -24,6 +24,7 @@ interface AuthContextType {
   isSupervisor: () => boolean;
   isModerator: () => boolean;
   isSupport: () => boolean;
+  isOrganizer: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -199,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isSupervisor = () => userRole === 'supervisor';
   const isModerator = () => userRole === 'moderator';
   const isSupport = () => userRole === 'support';
+  const isOrganizer = () => userRole === 'organizer';
 
   return (
     <AuthContext.Provider
@@ -221,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isSupervisor,
         isModerator,
         isSupport,
+        isOrganizer,
       }}
     >
       {children}
