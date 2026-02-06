@@ -88,6 +88,9 @@ const Auth = () => {
         case 'support':
           navigate('/team/support');
           break;
+        case 'organizer':
+          navigate('/organizer');
+          break;
         default:
           navigate('/client');
       }
