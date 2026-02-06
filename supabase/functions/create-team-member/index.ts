@@ -9,7 +9,7 @@ interface CreateTeamMemberRequest {
   email: string;
   password: string;
   fullName: string;
-  role: 'admin' | 'accountant' | 'supervisor' | 'moderator' | 'support';
+  role: 'admin' | 'accountant' | 'supervisor' | 'moderator' | 'support' | 'organizer';
 }
 
 Deno.serve(async (req) => {
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     }
 
     // Validate role
-    const validRoles = ['admin', 'accountant', 'supervisor', 'moderator', 'support'];
+    const validRoles = ['admin', 'accountant', 'supervisor', 'moderator', 'support', 'organizer'];
     if (!validRoles.includes(role)) {
       return new Response(
         JSON.stringify({ error: 'Rôle invalide' }),
