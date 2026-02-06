@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LogIn, LogOut, User, Menu, X } from 'lucide-react';
+import { LogIn, LogOut, User, Menu, X, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import logoYafoy from '@/assets/logo-yafoy.png';
@@ -34,6 +34,22 @@ const Header = () => {
         <div className="hidden md:flex items-center gap-4">
           {user ? (
             <>
+              {/* Dashboard link based on role */}
+              <Link to={
+                userRole === 'organizer' ? '/organizer' :
+                userRole === 'super_admin' || userRole === 'admin' ? '/admin' :
+                userRole === 'provider' ? '/provider' :
+                userRole === 'accountant' ? '/team/accountant' :
+                userRole === 'supervisor' ? '/team/supervisor' :
+                userRole === 'moderator' ? '/team/moderator' :
+                userRole === 'support' ? '/team/support' :
+                '/client'
+              }>
+                <Button variant="default" size="sm" className="rounded-lg">
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                  Mon Dashboard
+                </Button>
+              </Link>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                   <User className="h-4 w-4 text-primary" />
@@ -106,6 +122,20 @@ const Header = () => {
           <div className="flex flex-col gap-2 pt-4 border-t border-border">
             {user ? (
               <>
+                <Link
+                  to={
+                    userRole === 'organizer' ? '/organizer' :
+                    userRole === 'super_admin' || userRole === 'admin' ? '/admin' :
+                    userRole === 'provider' ? '/provider' :
+                    '/client'
+                  }
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Button className="w-full">
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    Mon Dashboard
+                  </Button>
+                </Link>
                 <div className="flex items-center gap-2 py-2 text-sm">
                   <User className="h-4 w-4 text-primary" />
                   <span>{user.email || user.phone || 'Invité'}</span>
